@@ -6,7 +6,7 @@
       "version": "lts",
       "nodeGypDependencies": true
     },
-    "ghcr.io/rails/ruby-devcontainer/features/ruby:1": {}
+    "ghcr.io/devcontainers/features/rust:1": {}
   },
   "customizations": {
     "vscode": {
