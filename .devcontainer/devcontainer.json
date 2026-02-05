@@ -1,0 +1,36 @@
+{
+  "name": "FilmVault Development",
+  "image": "mcr.microsoft.com/devcontainers/base:ubuntu-22.04",
+  "features": {
+    "ghcr.io/devcontainers/features/node:1": {
+      "version": "lts",
+      "nodeGypDependencies": true
+    },
+    "ghcr.io/rails/ruby-devcontainer/features/ruby:1": {}
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "dbaeumer.vscode-eslint",
+        "esbenp.prettier-vscode",
+        "bradlc.vscode-tailwindcss",
+        "rust-lang.rust-analyzer",
+        "tauri-apps.tauri-vscode",
+        "ms-vscode.hexeditor"
+      ],
+      "settings": {
+        "terminal.integrated.defaultProfile.linux": "bash"
+      }
+    }
+  },
+  "postCreateCommand": "bash .devcontainer/post-install.sh",
+  "forwardPorts": [1420, 3000],
+  "portsAttributes": {
+    "1420": {
+      "label": "Tauri App",
+      "onAutoForward": "notify"
+    }
+  },
+  "remoteUser": "vscode",
+  "runArgs": ["--cap-add=SYS_PTRACE", "--security-opt", "seccomp=unconfined"]
+}

@@ -1,0 +1,30 @@
+[package]
+name = "film-vault"
+version = "0.1.0"
+description = "A film photography management app"
+authors = ["you"]
+edition = "2021"
+
+[lib]
+name = "film_vault_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2.1", features = [] }
+tauri-plugin-shell = "2.0"
+tauri-plugin-dialog = "2.0"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+sqlx = { version = "0.8", features = ["sqlite", "runtime-tokio"] }
+tokio = { version = "1", features = ["full"] }
+image = "0.25"
+walkdir = "2"
+anyhow = "1"
+chrono = { version = "0.4", features = ["serde"] }
+
+[features]
+default = ["custom-protocol"]
+custom-protocol = ["tauri/custom-protocol"]
