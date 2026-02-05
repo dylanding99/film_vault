@@ -66,7 +66,10 @@ fn generate_thumbnail(source: &Path, dest: &Path) -> Result<()> {
     let thumbnail = img.resize(new_width, new_height, FilterType::Lanczos3);
 
     // Save as WebP
-    thumbnail.save(dest, image::ImageFormat::WebP)
+    let webp_encoder = image::codecs::webp::WebPEncoder::new_with_quality(
+        image::codecs::webp::WebPQuality::from_quality(THUMBNAIL_QUALITY),
+    );
+    thumbnail.write_with_encoder(dest, webp_encoder)
         .context("Failed to save thumbnail")?;
 
     Ok(())
@@ -86,7 +89,10 @@ fn generate_preview(source: &Path, dest: &Path) -> Result<()> {
         let new_height = (original_height as f64 * new_width as f64 / original_width as f64) as u32;
 
         let preview = img.resize(new_width, new_height, FilterType::Lanczos3);
-        preview.save(dest, image::ImageFormat::WebP)
+        let webp_encoder = image::codecs::webp::WebPEncoder::new_with_quality(
+            image::codecs::webp::WebPQuality::from_quality(PREVIEW_QUALITY),
+        );
+        preview.write_with_encoder(dest, webp_encoder)
             .context("Failed to save preview")?;
     } else {
         // If image is smaller, just copy it
