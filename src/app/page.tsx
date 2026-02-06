@@ -40,9 +40,12 @@ export default function HomePage() {
         rolls.map(async (roll) => {
           try {
             const photos = await getPhotosByRoll(roll.id);
+            console.log('[Roll', roll.id, '] Photos:', photos);
             const coverPhoto = photos.find(p => p.is_cover) || photos[0];
+            console.log('[Roll', roll.id, '] Cover photo:', coverPhoto);
             return { roll, coverPhoto, photoCount: photos.length };
-          } catch {
+          } catch (e) {
+            console.error('[Roll', roll.id, '] Error fetching photos:', e);
             return { roll, coverPhoto: undefined, photoCount: 0 };
           }
         })
@@ -55,16 +58,20 @@ export default function HomePage() {
   // Import mutation
   const importMutation = useMutation({
     mutationFn: (options: ImportOptions) => importFolder(options),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['rolls'] });
+    onSuccess: async () => {
+      // Refetch queries and wait for completion to ensure UI shows new rolls
+      await queryClient.refetchQueries({ queryKey: ['rolls'] });
+      await queryClient.refetchQueries({ queryKey: ['rolls', 'with-photos'] });
     },
   });
 
   // Update mutation
   const updateMutation = useMutation({
     mutationFn: (request: UpdateRollRequest) => updateRoll(request),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['rolls'] });
+    onSuccess: async () => {
+      // Refetch queries and wait for completion to ensure UI shows updated data
+      await queryClient.refetchQueries({ queryKey: ['rolls'] });
+      await queryClient.refetchQueries({ queryKey: ['rolls', 'with-photos'] });
     },
   });
 

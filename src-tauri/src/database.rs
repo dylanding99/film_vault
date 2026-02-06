@@ -1,7 +1,6 @@
-use sqlx::{SqlitePool, Row};
+use sqlx::SqlitePool;
 use serde::{Deserialize, Serialize};
 use anyhow::Result;
-use chrono::{DateTime, Utc};
 
 #[derive(Debug, Serialize, Deserialize, Clone, sqlx::FromRow)]
 pub struct Roll {
@@ -57,12 +56,28 @@ pub struct NewPhoto {
 
 /// Initialize database connection and run migrations
 pub async fn init_database(db_path: &str) -> Result<SqlitePool> {
+    eprintln!("[DB] Connecting to database: {}", db_path);
     let pool = SqlitePool::connect(db_path).await?;
+    eprintln!("[DB] Connected successfully");
 
     // Run migrations
-    sqlx::query(include_str!("../migrations/001_initial.sql"))
-        .execute(&pool)
-        .await?;
+    eprintln!("[DB] Running migrations...");
+    let migration_sql = include_str!("../migrations/001_initial.sql");
+
+    // Execute migration
+    match sqlx::query(migration_sql).execute(&pool).await {
+        Ok(_) => eprintln!("[DB] Migrations executed successfully"),
+        Err(e) => {
+            // If it's a "table already exists" error, that's okay
+            let error_msg = e.to_string().to_lowercase();
+            if error_msg.contains("already exists") {
+                eprintln!("[DB] Tables already exist, skipping migration");
+            } else {
+                eprintln!("[DB] Migration error: {}", e);
+                return Err(e.into());
+            }
+        }
+    }
 
     Ok(pool)
 }
@@ -117,13 +132,12 @@ pub async fn update_roll(pool: &SqlitePool, id: i64, roll: NewRoll) -> Result<bo
     let result = sqlx::query(
         r#"
         UPDATE rolls
-        SET name = ?1, path = ?2, film_stock = ?3, camera = ?4, lens = ?5,
-            shoot_date = ?6, lab_info = ?7, notes = ?8, updated_at = CURRENT_TIMESTAMP
-        WHERE id = ?9
+        SET name = ?1, film_stock = ?2, camera = ?3, lens = ?4,
+            shoot_date = ?5, lab_info = ?6, notes = ?7, updated_at = CURRENT_TIMESTAMP
+        WHERE id = ?8
         "#
     )
     .bind(&roll.name)
-    .bind(&roll.path)
     .bind(&roll.film_stock)
     .bind(&roll.camera)
     .bind(&roll.lens)

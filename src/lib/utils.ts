@@ -1,5 +1,6 @@
 import { type ClassValue, clsx } from "clsx"
 import { twMerge } from "tailwind-merge"
+import { invoke } from "@tauri-apps/api/core";
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
@@ -29,10 +30,15 @@ export function formatFileSize(bytes: number): string {
 }
 
 /**
- * Convert a local file path to a Tauri asset URL
+ * Convert a local file path to a base64 data URL
+ * Uses Rust backend to read the file and return base64 encoded data
  */
-export function pathToAssetUrl(path: string): string {
-  // Convert Windows backslashes to forward slashes
-  const normalizedPath = path.replace(/\\/g, '/');
-  return `asset://localhost/${normalizedPath}`;
+export async function pathToAssetUrl(path: string): Promise<string> {
+  try {
+    const dataUrl = await invoke<string>('read_image_as_base64', { path });
+    return dataUrl;
+  } catch (error) {
+    console.error('Failed to convert file to data URL:', error);
+    throw error;
+  }
 }

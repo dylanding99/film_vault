@@ -16,32 +16,72 @@ struct AppState {
 }
 
 #[tokio::main]
-async fn main() {
+pub async fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_fs::init())
         .setup(|app| {
             let handle = app.handle().clone();
 
             // Spawn async task to initialize database
             tokio::spawn(async move {
-                // Initialize database
-                let app_data_dir = handle.path().app_data_dir()
-                    .expect("Failed to get app data dir");
+                eprintln!("[FilmVault] Starting database initialization...");
 
-                std::fs::create_dir_all(&app_data_dir)
-                    .expect("Failed to create app data dir");
+                // Initialize database
+                let app_data_dir = match handle.path().app_data_dir() {
+                    Ok(dir) => dir,
+                    Err(e) => {
+                        eprintln!("[FilmVault] Failed to get app data dir: {}", e);
+                        return;
+                    }
+                };
+
+                if let Err(e) = std::fs::create_dir_all(&app_data_dir) {
+                    eprintln!("[FilmVault] Failed to create app data dir: {}", e);
+                    return;
+                }
+
+                eprintln!("[FilmVault] App data dir: {:?}", app_data_dir);
 
                 let db_path = app_data_dir.join("film_vault.db");
-                let db_connection_string = format!("sqlite:{}", db_path.to_string_lossy());
+                eprintln!("[FilmVault] Database file path: {:?}", db_path);
+                eprintln!("[FilmVault] File exists: {}", db_path.exists());
 
-                let pool = init_database(&db_connection_string).await
-                    .expect("Failed to initialize database");
+                // Check parent directory exists
+                if let Some(parent) = db_path.parent() {
+                    eprintln!("[FilmVault] Parent directory: {:?}", parent);
+                    eprintln!("[FilmVault] Parent exists: {}", parent.exists());
+                }
 
-                // Get the state and store the pool
-                let state = handle.state::<AppState>();
-                let mut db_pool = state.db_pool.lock().await;
-                *db_pool = Some(pool);
+                // For Windows SQLx SQLite, use file:// URI format with mode=rwc
+                let db_path_str = db_path.canonicalize()
+                    .unwrap_or(db_path.clone())
+                    .to_string_lossy()
+                    .replace('\\', "/")
+                    .trim_start_matches("//?/")
+                    .to_string();
+
+                // Use file:// URI format with read-write-create mode
+                let db_connection_string = format!("sqlite://file:/{}?mode=rwc", db_path_str);
+
+                eprintln!("[FilmVault] Database file path: {:?}", db_path);
+                eprintln!("[FilmVault] Normalized path: {}", db_path_str);
+                eprintln!("[FilmVault] Connection string: {}", db_connection_string);
+
+                match init_database(&db_connection_string).await {
+                    Ok(pool) => {
+                        eprintln!("[FilmVault] Database initialized successfully");
+                        let state = handle.state::<AppState>();
+                        let mut db_pool = state.db_pool.lock().await;
+                        *db_pool = Some(pool);
+                        eprintln!("[FilmVault] Database pool stored in state");
+                    }
+                    Err(e) => {
+                        eprintln!("[FilmVault] Failed to initialize database: {}", e);
+                        eprintln!("[FilmVault] Error details: {:?}", e);
+                    }
+                }
             });
 
             Ok(())
@@ -63,6 +103,7 @@ async fn main() {
             commands::rolls::update_photo_rating_command,
             commands::rolls::update_photo_location_command,
             commands::rolls::get_photos_by_roll_command,
+            commands::rolls::read_image_as_base64,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

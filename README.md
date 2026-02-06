@@ -102,13 +102,13 @@ film_vault/
 └── tsconfig.json
 ```
 
-## 开发指南
+## 项目文档
 
-详细开发文档请查看 [DEVELOPMENT.md](DEVELOPMENT.md)，包括：
-- 环境配置详解
-- 常见问题排查
-- 架构说明
-- 添加新功能指南
+- **开发指南**: [DEVELOPMENT.md](DEVELOPMENT.md) - 本地开发环境设置和开发指南
+- **测试文档**: [TESTING.md](TESTING.md) - 测试策略和测试用例
+- **开发路线**: [ROADMAP.md](ROADMAP.md) - 功能规划和版本计划
+- **变更日志**: [CHANGELOG.md](CHANGELOG.md) - 版本变更记录
+- **AI 辅助**: [CLAUDE.md](CLAUDE.md) - 项目架构和开发指南（供 Claude Code 使用）
 
 ## 许可证
 

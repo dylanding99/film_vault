@@ -1,0 +1,124 @@
+# FilmVault 变更日志
+
+本文档记录 FilmVault 的所有重要变更。
+
+格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/)，
+版本号遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
+
+---
+
+## [0.2.0] - 计划中
+
+### 计划新增
+- 自定义存储位置功能
+- 胶卷详情页面（查看所有照片）
+- 照片评分系统（1-5 星）
+- 胶卷删除功能
+- 改进导入体验（进度条、提示信息）
+
+### 计划改进
+- 优化大量照片加载性能
+- 改进用户界面响应速度
+- 增强错误处理和提示
+
+---
+
+## [0.1.0] - 2026-02-06
+
+### 新增
+**核心功能**：
+- 胶卷导入功能（支持 JPG、PNG、WebP、TIFF 等格式）
+- 自动缩略图生成（300px WebP 格式）
+- 自动预览图生成（1920px WebP 格式）
+- 胶卷列表展示（卡片式布局）
+- 多胶卷管理（支持导入多个胶卷）
+- 自动路径冲突检测和处理（添加序号后缀）
+
+**元数据管理**：
+- 胶卷元数据编辑（名称、胶卷型号、相机、镜头、日期、备注）
+- 胶卷型号预设（Kodak Portra、Fujifilm 等）
+- 相机型号预设（Canon、Nikon、Olympus 等）
+- 拍摄日期选择器
+
+**数据管理**：
+- SQLite 数据库持久化
+- 胶卷和照片关联存储
+- 数据库自动初始化和迁移
+- Windows 本地文件系统存储
+
+**用户界面**：
+- 暗色主题界面
+- FilmStripBadge 胶卷型号颜色标识
+- 响应式布局
+- 导入对话框
+- 元数据编辑对话框
+
+### 技术实现
+**架构**：
+- Next.js 15 + App Router
+- Tauri v2 桌面应用框架
+- React Query 数据缓存管理
+- Rust + SQLx SQLite 数据库
+- TypeScript 前端 + Rust 后端
+
+**关键技术点**：
+- Base64 图片显示方案（通过 Rust 后端读取文件）
+- React Query refetchQueries 缓存刷新优化
+- 自动路径冲突检测（文件存在时添加序号）
+- WebP 图片格式统一
+- SQLite UNIQUE 约束优化
+
+**数据库设计**：
+- `rolls` 表：胶卷元数据（id, name, path, film_stock, camera, lens, shoot_date, lab_info, notes）
+- `photos` 表：照片信息（id, roll_id, filename, file_path, thumbnail_path, preview_path, rating, is_cover, lat, lon, exif_synced）
+- 外键关联：photos.roll_id → rolls.id
+- 级联删除：删除胶卷时自动删除关联照片
+
+### 已修复问题
+**修复的问题**：
+- 元数据编辑第一次保存不生效（使用 refetchQueries 替代 invalidateQueries）
+- 导入第二个胶卷失败（添加路径冲突检测和自动序号）
+- 导入胶卷后不自动显示（优化缓存刷新逻辑）
+- 编辑元数据保存失败（从 UPDATE 语句移除 path 字段）
+
+### 已知问题
+- 无重大问题
+
+### 测试状态
+- 阶段一测试完成（94.9% 通过率）
+- 37/39 测试项通过
+- 核心功能验证完成
+
+### 开发环境
+- Rust 1.93.0
+- Node.js 22.14.0
+- Visual Studio Build Tools 2022
+- Windows 10/11
+
+### 文档
+- 创建 LOCAL_DEV.md（本地开发环境设置）
+- 创建 TEST_PHASE_1.md（测试清单）
+- 创建 PHASE_1_TEST_SUMMARY.md（测试总结）
+- 更新 CLAUDE.md（AI 辅助开发指南）
+
+---
+
+## 版本说明
+
+### 版本号规则
+- **主版本号**（Major）：不兼容的 API 变更
+- **次版本号**（Minor）：向下兼容的功能性新增
+- **修订号**（Patch）：向下兼容的问题修正
+
+### 变更类型
+- **新增**：新功能
+- **改进**：现有功能的改进
+- **修复**：问题修复
+- **删除**：功能移除
+- **安全**：安全相关的修复或改进
+- **性能**：性能优化
+- **文档**：文档更新
+
+---
+
+**最后更新**: 2026-02-06

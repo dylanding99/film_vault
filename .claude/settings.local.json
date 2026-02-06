@@ -31,7 +31,30 @@
       "Bash(git add:*)",
       "Bash(git commit:*)",
       "Bash(Select-String:*)",
-      "Bash(Select-Object:*)"
+      "Bash(Select-Object:*)",
+      "Bash(gh:*)",
+      "Bash(where:*)",
+      "Bash(\"C:\\\\Program Files\\\\GitHub CLI\\\\gh.exe\" auth login:*)",
+      "Bash(\"C:\\\\Program Files\\\\GitHub CLI\\\\gh.exe\" auth status)",
+      "Bash(\"C:\\\\Program Files\\\\GitHub CLI\\\\gh.exe\" repo create film_vault --public --source=. --remote=origin --push)",
+      "Bash(\"C:\\\\Program Files\\\\GitHub CLI\\\\gh.exe\" codespace create --repo dylanding99/film_vault --branch main)",
+      "Bash(\"C:\\\\Program Files\\\\GitHub CLI\\\\gh.exe\":*)",
+      "Bash(git push)",
+      "Bash(git pull:*)",
+      "Bash(git stash:*)",
+      "Bash(rustc:*)",
+      "Bash(node:*)",
+      "Bash(npm:*)",
+      "Bash(cmd.exe:*)",
+      "Bash(powershell.exe:*)",
+      "Bash(\"C:\\\\Users\\\\dylan\\\\.cargo\\\\bin\\\\rustc.exe\" --version)",
+      "Bash(\"C:\\\\Users\\\\dylan\\\\.cargo\\\\bin\\\\cargo.exe\":*)",
+      "Bash(ls:*)",
+      "Bash(\"C:\\\\Users\\\\dylan\\\\.cargo\\\\bin\\\\cargo.exe\" build:*)",
+      "Bash(npx @tauri-apps/cli icon:*)",
+      "Bash(python:*)",
+      "Bash(Get-ChildItem:*)",
+      "Bash(Where-Object { $_Name -like \"*PROBLEM*\" -or $_Name -like \"*ISSUE*\" -or $_Name -like \"*BUG*\" })"
     ]
   }
 }

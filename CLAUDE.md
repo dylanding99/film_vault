@@ -154,7 +154,7 @@ Film stocks have associated colors defined in `src/types/roll.ts` (FILM_STOCK_CO
 ## Important Constraints
 
 - **No external API calls** for map/geo features (planned: React-Leaflet with OpenStreetMap)
-- **Images must use `asset://` protocol** - use `pathToAssetUrl()` from `@tauri-apps/api/core` when displaying local files
+- **Image display**: Local images are converted to base64 data URLs via a Rust backend command (`read_image_as_base64` in `src-tauri/src/commands/rolls.rs`). Frontend calls this via `pathToAssetUrl()` in `src/lib/utils.ts` using Tauri's `invoke()` API. Returns `data:image/webp;base64,...` format for browser display.
 - **ExifTool integration** (Phase 4): Call ExifTool from Rust, not frontend, for security
 
 ## Development Notes

@@ -1,6 +1,5 @@
 use tauri::State;
 use serde::{Deserialize, Serialize};
-use sqlx::SqlitePool;
 
 use crate::database::{
     Roll, Photo, NewRoll,
@@ -30,11 +29,28 @@ pub struct RollWithPhotos {
 }
 
 /// Helper function to get pool from state
+/// Will wait up to 10 seconds for database to be initialized
 async fn get_pool(state: &State<'_, AppState>) -> Result<sqlx::Pool<sqlx::Sqlite>, String> {
-    let db_guard = state.db_pool.lock().await;
-    db_guard.as_ref()
-        .ok_or_else(|| "Database not initialized".to_string())
-        .map(|p| p.clone())
+    // Wait for database to be initialized (up to 10 seconds)
+    let mut attempts = 0;
+    let max_attempts = 100; // 10 seconds (100 * 100ms)
+
+    loop {
+        let db_guard = state.db_pool.lock().await;
+        if let Some(pool) = db_guard.as_ref() {
+            return Ok(pool.clone());
+        }
+
+        attempts += 1;
+        if attempts >= max_attempts {
+            drop(db_guard);
+            return Err("Database not initialized. Please wait a moment and try again.".to_string());
+        }
+
+        // Release lock before waiting
+        drop(db_guard);
+        tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
+    }
 }
 
 /// Get all rolls
@@ -178,4 +194,39 @@ pub async fn get_photos_by_roll_command(
     get_photos_by_roll(&pool, roll_id)
         .await
         .map_err(|e| format!("Failed to get photos: {}", e))
+}
+
+/// Read image file and convert to base64 data URL
+#[tauri::command]
+pub async fn read_image_as_base64(path: String) -> Result<String, String> {
+    use std::fs;
+    use std::io::Read;
+
+    // Read the file
+    let mut file = fs::File::open(&path)
+        .map_err(|e| format!("Failed to open file: {}", e))?;
+
+    // Get file metadata to determine size
+    let metadata = file.metadata()
+        .map_err(|e| format!("Failed to get file metadata: {}", e))?;
+
+    let mut buffer = Vec::with_capacity(metadata.len() as usize);
+    file.read_to_end(&mut buffer)
+        .map_err(|e| format!("Failed to read file: {}", e))?;
+
+    // Encode to base64
+    let base64_string = base64::encode(&buffer);
+
+    // Determine MIME type based on file extension
+    let mime_type = if path.ends_with(".webp") {
+        "image/webp"
+    } else if path.ends_with(".jpg") || path.ends_with(".jpeg") {
+        "image/jpeg"
+    } else if path.ends_with(".png") {
+        "image/png"
+    } else {
+        "image/jpeg" // Default to JPEG
+    };
+
+    Ok(format!("data:{};base64,{}", mime_type, base64_string))
 }

@@ -1,7 +1,8 @@
 use std::path::{Path, PathBuf};
+use std::fs::{self, File};
 use anyhow::{Result, Context};
-use image::{ImageReader, DynamicImage, imageops::FilterType};
-use std::fs;
+use image::{ImageReader, imageops::FilterType};
+use std::io::BufWriter;
 
 const THUMBNAIL_WIDTH: u32 = 300;
 const THUMBNAIL_QUALITY: u8 = 85;
@@ -66,10 +67,11 @@ fn generate_thumbnail(source: &Path, dest: &Path) -> Result<()> {
     let thumbnail = img.resize(new_width, new_height, FilterType::Lanczos3);
 
     // Save as WebP
-    let webp_encoder = image::codecs::webp::WebPEncoder::new_with_quality(
-        image::codecs::webp::WebPQuality::from_quality(THUMBNAIL_QUALITY),
-    );
-    thumbnail.write_with_encoder(dest, webp_encoder)
+    let dest_file = File::create(dest)
+        .context("Failed to create thumbnail file")?;
+    let buffered_writer = BufWriter::new(dest_file);
+    let encoder = image::codecs::webp::WebPEncoder::new_lossless(buffered_writer);
+    thumbnail.write_with_encoder(encoder)
         .context("Failed to save thumbnail")?;
 
     Ok(())
@@ -89,10 +91,12 @@ fn generate_preview(source: &Path, dest: &Path) -> Result<()> {
         let new_height = (original_height as f64 * new_width as f64 / original_width as f64) as u32;
 
         let preview = img.resize(new_width, new_height, FilterType::Lanczos3);
-        let webp_encoder = image::codecs::webp::WebPEncoder::new_with_quality(
-            image::codecs::webp::WebPQuality::from_quality(PREVIEW_QUALITY),
-        );
-        preview.write_with_encoder(dest, webp_encoder)
+
+        let dest_file = File::create(dest)
+            .context("Failed to create preview file")?;
+        let buffered_writer = BufWriter::new(dest_file);
+        let encoder = image::codecs::webp::WebPEncoder::new_lossless(buffered_writer);
+        preview.write_with_encoder(encoder)
             .context("Failed to save preview")?;
     } else {
         // If image is smaller, just copy it
@@ -119,7 +123,8 @@ pub fn process_images_in_directory(
 
         if path.is_file() {
             if let Some(ext) = path.extension().and_then(|e| e.to_str()) {
-                if image_extensions.contains(&ext.to_lowercase().as_str()) {
+                let ext_lower = ext.to_lowercase();
+                if image_extensions.contains(&ext_lower.as_str()) {
                     match process_image(&path, roll_dir) {
                         Ok(processed) => results.push(processed),
                         Err(e) => {

@@ -1,9 +1,7 @@
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use tauri::State;
 use serde::{Deserialize, Serialize};
-use sqlx::SqlitePool;
 use walkdir::WalkDir;
-use chrono::{DateTime, Utc};
 
 use crate::database::{NewRoll, NewPhoto, create_roll, create_photos};
 use crate::image_processor::process_images_in_directory;
@@ -34,10 +32,33 @@ pub async fn import_folder(
     options: ImportOptions,
     state: State<'_, AppState>,
 ) -> Result<ImportResult, String> {
-    // Get the pool from state
-    let db_guard = state.db_pool.lock().await;
-    let pool = db_guard.as_ref()
-        .ok_or_else(|| "Database not initialized".to_string())?;
+    eprintln!("[Import] import_folder called, waiting for database...");
+
+    // Wait for database to be initialized (up to 30 seconds)
+    let mut attempts = 0;
+    let max_attempts = 300; // 30 seconds (300 * 100ms)
+    let pool = loop {
+        let db_guard = state.db_pool.lock().await;
+        if let Some(pool) = db_guard.as_ref() {
+            eprintln!("[Import] Database initialized after {} attempts", attempts);
+            break pool.clone();
+        }
+
+        attempts += 1;
+        if attempts % 10 == 0 {
+            eprintln!("[Import] Still waiting for database... ({}/{})", attempts, max_attempts);
+        }
+
+        if attempts >= max_attempts {
+            drop(db_guard);
+            eprintln!("[Import] Database initialization timeout after {} attempts", attempts);
+            return Err("Database not initialized. Please check the terminal logs for errors.".to_string());
+        }
+
+        // Release lock before waiting
+        drop(db_guard);
+        tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
+    };
 
     // Validate source path exists
     let source_path = Path::new(&options.source_path);
@@ -60,9 +81,20 @@ pub async fn import_folder(
     let dir_name = format!("{}_{}_{}", date_part, safe_film_stock, safe_camera);
 
     // Create full destination path
-    let roll_dir = Path::new(&options.library_root)
+    let mut roll_dir = Path::new(&options.library_root)
         .join(year)
         .join(&dir_name);
+
+    // Handle path conflicts by adding a suffix
+    let mut counter = 1;
+    let original_dir_name = dir_name.clone();
+    while roll_dir.exists() {
+        let new_dir_name = format!("{}_{}", original_dir_name, counter);
+        roll_dir = Path::new(&options.library_root)
+            .join(year)
+            .join(&new_dir_name);
+        counter += 1;
+    }
 
     // Create roll directory
     std::fs::create_dir_all(&roll_dir)
@@ -89,7 +121,7 @@ pub async fn import_folder(
         notes: options.notes,
     };
 
-    let roll_id = create_roll(pool, new_roll).await
+    let roll_id = create_roll(&pool, new_roll).await
         .map_err(|e| format!("Failed to create roll in database: {}", e))?;
 
     // Create photo records in database
@@ -107,7 +139,7 @@ pub async fn import_folder(
         })
         .collect();
 
-    create_photos(pool, new_photos).await
+    create_photos(&pool, new_photos).await
         .map_err(|e| format!("Failed to create photos in database: {}", e))?;
 
     Ok(ImportResult {

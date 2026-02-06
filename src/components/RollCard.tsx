@@ -1,3 +1,6 @@
+'use client';
+
+import { useState, useEffect } from 'react';
 import { FilmStripBadge } from './FilmStripBadge';
 import { pathToAssetUrl, formatDate } from '@/lib/utils';
 import type { Roll, Photo } from '@/types/roll';
@@ -12,10 +15,21 @@ interface RollCardProps {
 }
 
 export function RollCard({ roll, coverPhoto, photoCount, onEdit }: RollCardProps) {
-  // Get the cover image URL or use a placeholder
-  const coverImageUrl = coverPhoto?.thumbnail_path
-    ? pathToAssetUrl(coverPhoto.thumbnail_path)
-    : null;
+  const [coverImageUrl, setCoverImageUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (coverPhoto?.thumbnail_path) {
+      console.log('[RollCard', roll.id, '] Converting thumbnail_path:', coverPhoto.thumbnail_path);
+      pathToAssetUrl(coverPhoto.thumbnail_path)
+        .then(url => {
+          console.log('[RollCard', roll.id, '] Converted URL:', url);
+          setCoverImageUrl(url);
+        })
+        .catch(err => {
+          console.error('[RollCard', roll.id, '] Failed to convert URL:', err);
+        });
+    }
+  }, [coverPhoto, roll.id]);
 
   return (
     <div className="group relative overflow-hidden rounded-lg border border-zinc-800 bg-zinc-900/50 hover:border-zinc-700 hover:bg-zinc-900 transition-all cursor-pointer">
@@ -26,6 +40,13 @@ export function RollCard({ roll, coverPhoto, photoCount, onEdit }: RollCardProps
             src={coverImageUrl}
             alt={roll.name}
             className="h-full w-full object-cover transition-transform group-hover:scale-105"
+            onError={(e) => {
+              console.error('[RollCard', roll.id, '] Image load error:', e);
+              console.error('[RollCard', roll.id, '] Image src:', coverImageUrl);
+            }}
+            onLoad={() => {
+              console.log('[RollCard', roll.id, '] Image loaded successfully');
+            }}
           />
         ) : (
           <div className="flex h-full w-full items-center justify-center">
