@@ -71,10 +71,33 @@ export default function HomePage() {
   // Import mutation
   const importMutation = useMutation({
     mutationFn: (options: ImportOptions) => importFolder(options),
-    onSuccess: async () => {
-      // Refetch queries and wait for completion to ensure UI shows new rolls
+    onSuccess: async (data) => {
+      console.log('[Import] Import successful, roll_id:', data.roll_id, 'photos_count:', data.photos_count);
+
+      // Cancel any ongoing queries
+      await queryClient.cancelQueries({ queryKey: ['rolls'] });
+      await queryClient.cancelQueries({ queryKey: ['rolls', 'with-photos'] });
+
+      // Reset queries to force hard refetch (more aggressive than invalidate)
+      await queryClient.resetQueries({ queryKey: ['rolls'] });
+      await queryClient.resetQueries({ queryKey: ['rolls', 'with-photos'] });
+
+      // Refetch to ensure we have the latest data
       await queryClient.refetchQueries({ queryKey: ['rolls'] });
+
+      // Wait a bit for the rolls query to complete before refetching with-photos
+      await new Promise(resolve => setTimeout(resolve, 100));
+
       await queryClient.refetchQueries({ queryKey: ['rolls', 'with-photos'] });
+
+      console.log('[Import] Queries refetched, closing dialog');
+
+      // Close dialog after data is refreshed
+      setIsImportDialogOpen(false);
+    },
+    onError: (error: Error) => {
+      console.error('Import failed:', error);
+      alert(`导入失败: ${error.message}`);
     },
   });
 
@@ -120,11 +143,28 @@ export default function HomePage() {
   // Delete roll mutation
   const deleteMutation = useMutation({
     mutationFn: (request: DeleteRollRequest) => deleteRoll(request),
-    onSuccess: async () => {
+    onSuccess: async (_, variables) => {
+      // Remove the deleted roll from cache immediately
+      queryClient.setQueryData<Roll[]>(['rolls'], (oldData) => {
+        return oldData?.filter(roll => roll.id !== variables.id) ?? [];
+      });
+
+      // Also update the with-photos query
+      queryClient.setQueryData<{ roll: Roll; coverPhoto?: Photo; photoCount: number }[]>(
+        ['rolls', 'with-photos'],
+        (oldData) => {
+          return oldData?.filter(item => item.roll.id !== variables.id) ?? [];
+        }
+      );
+
+      // Then invalidate to ensure consistency
       await queryClient.invalidateQueries({ queryKey: ['rolls'] });
       await queryClient.invalidateQueries({ queryKey: ['rolls', 'with-photos'] });
+
+      // Close dialog and clear selection
       setSelectedRolls(new Set());
       setSelectionMode(false);
+      setIsDeleteDialogOpen(false);
     },
     onError: (error: Error) => {
       console.error('Failed to delete roll:', error);
@@ -169,23 +209,39 @@ export default function HomePage() {
     }
   };
 
-  const handleConfirmDeleteRoll = async (deleteFiles: boolean, deleteOriginals: boolean) => {
-    // Delete each selected roll
+  const handleConfirmDeleteRoll = async () => {
+    // Immediately remove deleted rolls from cache to prevent loading deleted files
+    const deletedIds = Array.from(selectedRolls);
+
+    queryClient.setQueryData<Roll[]>(['rolls'], (oldData) => {
+      return oldData?.filter(roll => !deletedIds.includes(roll.id)) ?? [];
+    });
+
+    queryClient.setQueryData<{ roll: Roll; coverPhoto?: Photo; photoCount: number }[]>(
+      ['rolls', 'with-photos'],
+      (oldData) => {
+        return oldData?.filter(item => !deletedIds.includes(item.roll.id)) ?? [];
+      }
+    );
+
+    // Delete each selected roll with all files
     for (const rollId of selectedRolls) {
       try {
         await deleteRoll({
           id: rollId,
-          delete_files: deleteFiles,
-          delete_originals: deleteOriginals,
+          delete_files: true,
+          delete_originals: true,
         });
       } catch (error) {
         console.error(`Failed to delete roll ${rollId}:`, error);
       }
     }
 
-    // Refresh data and close dialog
+    // Refresh data to ensure consistency
     await queryClient.invalidateQueries({ queryKey: ['rolls'] });
     await queryClient.invalidateQueries({ queryKey: ['rolls', 'with-photos'] });
+
+    // Close dialog and clear selection
     setSelectedRolls(new Set());
     setSelectionMode(false);
     setIsDeleteDialogOpen(false);

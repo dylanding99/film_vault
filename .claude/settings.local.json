@@ -54,7 +54,9 @@
       "Bash(npx @tauri-apps/cli icon:*)",
       "Bash(python:*)",
       "Bash(Get-ChildItem:*)",
-      "Bash(Where-Object { $_Name -like \"*PROBLEM*\" -or $_Name -like \"*ISSUE*\" -or $_Name -like \"*BUG*\" })"
+      "Bash(Where-Object { $_Name -like \"*PROBLEM*\" -or $_Name -like \"*ISSUE*\" -or $_Name -like \"*BUG*\" })",
+      "Bash(git push:*)",
+      "Bash(git reset:*)"
     ]
   }
 }

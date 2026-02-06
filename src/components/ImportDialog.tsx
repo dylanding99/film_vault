@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -12,6 +12,7 @@ import { Label } from './ui/label';
 import { Input } from './ui/input';
 import { Select } from './ui/select';
 import * as DialogPlugin from '@tauri-apps/plugin-dialog';
+import { listen } from '@tauri-apps/api/event';
 import { FILM_STOCKS } from '@/types/roll';
 import { ImportOptions } from '@/types/roll';
 
@@ -59,8 +60,36 @@ export function ImportDialog({ open, onOpenChange, onImport, libraryRoot }: Impo
   const [shootDate, setShootDate] = useState(new Date().toISOString().split('T')[0]);
   const [rollName, setRollName] = useState('');
   const [notes, setNotes] = useState('');
+  const [copyMode, setCopyMode] = useState(true); // true = copy, false = move
   const [isImporting, setIsImporting] = useState(false);
   const [previewCount, setPreviewCount] = useState<number | null>(null);
+
+  // Import progress state
+  const [importProgress, setImportProgress] = useState({
+    current: 0,
+    total: 0,
+    filename: '',
+  });
+
+  // Listen for import progress events
+  useEffect(() => {
+    const unlistenProgress = listen<{
+      current: number;
+      total: number;
+      filename: string;
+      rollId: number;
+    }>('import-progress', (event) => {
+      setImportProgress({
+        current: event.payload.current,
+        total: event.payload.total,
+        filename: event.payload.filename,
+      });
+    });
+
+    return () => {
+      unlistenProgress.then((fn) => fn());
+    };
+  }, []);
 
   const handleSelectFolder = async () => {
     try {
@@ -72,7 +101,20 @@ export function ImportDialog({ open, onOpenChange, onImport, libraryRoot }: Impo
 
       if (selected && typeof selected === 'string') {
         setSourcePath(selected);
-        // Optionally, preview the count
+
+        // Check if folder contains images
+        try {
+          const { previewImportCount } = await import('@/lib/db');
+          const count = await previewImportCount(selected);
+          if (count === 0) {
+            alert('选择的文件夹中没有找到图片文件（支持的格式：jpg, jpeg, png, webp, tif, tiff, bmp）');
+            setSourcePath('');
+            return;
+          }
+          console.log(`[ImportDialog] Found ${count} images in folder`);
+        } catch (error) {
+          console.error('Failed to preview folder:', error);
+        }
       }
     } catch (error) {
       console.error('Failed to select folder:', error);
@@ -81,11 +123,12 @@ export function ImportDialog({ open, onOpenChange, onImport, libraryRoot }: Impo
 
   const handleImport = async () => {
     if (!sourcePath) {
-      alert('Please select a source folder');
+      alert('请选择源文件夹');
       return;
     }
 
     setIsImporting(true);
+    setImportProgress({ current: 0, total: 0, filename: '' });
 
     try {
       await onImport({
@@ -97,18 +140,20 @@ export function ImportDialog({ open, onOpenChange, onImport, libraryRoot }: Impo
         library_root: libraryRoot,
         roll_name: rollName || undefined,
         notes: notes || undefined,
+        copy_mode: copyMode,
       });
 
-      // Reset form
+      // Reset form (dialog will be closed by parent component)
       setSourcePath('');
       setLens('');
       setRollName('');
       setNotes('');
       setShootDate(new Date().toISOString().split('T')[0]);
-      onOpenChange(false);
+      setCopyMode(true);
+      setImportProgress({ current: 0, total: 0, filename: '' });
     } catch (error) {
       console.error('Import failed:', error);
-      alert(`Import failed: ${error}`);
+      alert(`导入失败: ${error}`);
     } finally {
       setIsImporting(false);
     }
@@ -218,6 +263,58 @@ export function ImportDialog({ open, onOpenChange, onImport, libraryRoot }: Impo
               placeholder="Any additional notes..."
             />
           </div>
+
+          {/* File Copy Mode */}
+          <div className="grid gap-2">
+            <Label>文件处理方式</Label>
+            <div className="flex gap-4">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="radio"
+                  name="copyMode"
+                  checked={copyMode}
+                  onChange={() => setCopyMode(true)}
+                  className="w-4 h-4"
+                />
+                <span className="text-sm">复制（保留源文件）</span>
+              </label>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="radio"
+                  name="copyMode"
+                  checked={!copyMode}
+                  onChange={() => setCopyMode(false)}
+                  className="w-4 h-4"
+                />
+                <span className="text-sm">移动（删除源文件）</span>
+              </label>
+            </div>
+          </div>
+
+          {/* Import Progress */}
+          {isImporting && importProgress.total > 0 && (
+            <div className="grid gap-2 p-4 bg-zinc-800 rounded-lg">
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-zinc-400">导入进度</span>
+                <span className="text-zinc-300">
+                  {importProgress.current} / {importProgress.total}
+                </span>
+              </div>
+              <div className="w-full bg-zinc-700 rounded-full h-2">
+                <div
+                  className="bg-blue-600 h-2 rounded-full transition-all"
+                  style={{
+                    width: `${(importProgress.current / importProgress.total) * 100}%`,
+                  }}
+                />
+              </div>
+              {importProgress.filename && (
+                <div className="text-xs text-zinc-500 truncate">
+                  正在处理: {importProgress.filename}
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         <DialogFooter>

@@ -35,6 +35,9 @@ export default function RollDetailPage() {
   // Batch selection states
   const [selectedPhotos, setSelectedPhotos] = useState<Set<number>>(new Set());
 
+  // Filter state
+  const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
+
   // Fetch roll data with photos
   const { data: rollData, isLoading, error } = useQuery({
     queryKey: ['roll', rollId],
@@ -42,7 +45,12 @@ export default function RollDetailPage() {
   });
 
   const roll = rollData?.roll;
-  const photos = rollData?.photos || [];
+  const allPhotos = rollData?.photos || [];
+
+  // Filter photos based on favorite status
+  const photos = showFavoritesOnly
+    ? allPhotos.filter(p => p.is_favorite)
+    : allPhotos;
 
   // Update mutation
   const updateMutation = useMutation({
@@ -56,9 +64,26 @@ export default function RollDetailPage() {
   // Delete mutation
   const deleteMutation = useMutation({
     mutationFn: (request: DeleteRollRequest) => deleteRoll(request),
-    onSuccess: async () => {
+    onSuccess: async (_, variables) => {
+      // Immediately remove the deleted roll from cache
+      queryClient.setQueryData<Roll[]>(['rolls'], (oldData) => {
+        return oldData?.filter(roll => roll.id !== variables.id) ?? [];
+      });
+
+      queryClient.setQueryData<{ roll: Roll; coverPhoto?: Photo; photoCount: number }[]>(
+        ['rolls', 'with-photos'],
+        (oldData) => {
+          return oldData?.filter(item => item.roll.id !== variables.id) ?? [];
+        }
+      );
+
+      // Invalidate queries to ensure consistency
       await queryClient.invalidateQueries({ queryKey: ['rolls'] });
-      router.push('/'); // Navigate back to home after successful deletion
+      await queryClient.invalidateQueries({ queryKey: ['rolls', 'with-photos'] });
+
+      // Close dialog and navigate
+      setIsDeleteDialogOpen(false);
+      router.push('/');
     },
     onError: (error: Error) => {
       console.error('Failed to delete roll:', error);
@@ -111,12 +136,12 @@ export default function RollDetailPage() {
     setIsDeleteDialogOpen(true);
   };
 
-  const handleConfirmDelete = async (deleteFiles: boolean, deleteOriginals: boolean) => {
+  const handleConfirmDelete = async () => {
     if (!roll) return;
     await deleteMutation.mutateAsync({
       id: roll.id,
-      delete_files: deleteFiles,
-      delete_originals: deleteOriginals,
+      delete_files: true,
+      delete_originals: true,
     });
   };
 
@@ -128,11 +153,11 @@ export default function RollDetailPage() {
     setIsDeletePhotosDialogOpen(true);
   };
 
-  const handleConfirmDeletePhotos = async (deleteFiles: boolean) => {
+  const handleConfirmDeletePhotos = async () => {
     const photoIds = Array.from(selectedPhotos);
     await deletePhotosMutation.mutateAsync({
       photo_ids: photoIds,
-      delete_files: deleteFiles,
+      delete_files: true,
     });
     setIsDeletePhotosDialogOpen(false);
   };
@@ -158,6 +183,11 @@ export default function RollDetailPage() {
     setPreviewPhoto(photos[newIndex]);
   };
 
+  // Handle select all (only select visible photos)
+  const handleSelectAll = () => {
+    setSelectedPhotos(new Set(photos.map(p => p.id)));
+  };
+
   // Handle photo selection
   const handleToggleSelection = (photoId: number) => {
     const newSelected = new Set(selectedPhotos);
@@ -167,10 +197,6 @@ export default function RollDetailPage() {
       newSelected.add(photoId);
     }
     setSelectedPhotos(newSelected);
-  };
-
-  const handleSelectAll = () => {
-    setSelectedPhotos(new Set(photos.map(p => p.id)));
   };
 
   const handleClearSelection = () => {
@@ -188,6 +214,43 @@ export default function RollDetailPage() {
       console.error('Failed to set cover:', error);
     }
   };
+
+  // Handle toggle favorite
+  const handleToggleFavorite = async (photoId: number) => {
+    try {
+      const { togglePhotoFavorite } = await import('@/lib/db');
+      await togglePhotoFavorite(photoId);
+
+      // Invalidate and refetch queries
+      await queryClient.invalidateQueries({ queryKey: ['roll', rollId] });
+      await queryClient.refetchQueries({ queryKey: ['roll', rollId] });
+      await queryClient.invalidateQueries({ queryKey: ['rolls'] });
+
+      // Update previewPhoto state if the toggled photo is currently being previewed
+      if (previewPhoto && previewPhoto.id === photoId) {
+        // Fetch updated photo data from refetched query
+        await queryClient.refetchQueries({ queryKey: ['roll', rollId] });
+
+        // Get the updated data from cache
+        const cachedData = queryClient.getQueryData<{ roll: Roll; photos: Photo[] }>(['roll', rollId]);
+        if (cachedData) {
+          const updatedPhoto = cachedData.photos.find(p => p.id === photoId);
+          if (updatedPhoto) {
+            setPreviewPhoto(updatedPhoto);
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Failed to toggle favorite:', error);
+    }
+  };
+
+  // Reset preview and selection when filter changes
+  useEffect(() => {
+    setPreviewIndex(0);
+    setPreviewPhoto(null);
+    setSelectedPhotos(new Set());
+  }, [showFavoritesOnly]);
 
   // Loading state
   if (isLoading) {
@@ -218,20 +281,42 @@ export default function RollDetailPage() {
       {/* Header */}
       <RollDetailHeader
         roll={roll}
-        photoCount={photos.length}
+        photoCount={allPhotos.length}
         onBack={handleBack}
         onEdit={handleEdit}
         onDelete={handleDelete}
       />
+
+      {/* Filter Bar */}
+      {allPhotos.length > 0 && (
+        <div className="container mx-auto px-6 py-4 border-b border-zinc-800">
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={showFavoritesOnly}
+              onChange={(e) => setShowFavoritesOnly(e.target.checked)}
+              className="w-4 h-4 rounded border-zinc-600 bg-zinc-800 text-red-500 focus:ring-red-500 focus:ring-offset-0"
+            />
+            <span className="text-sm text-zinc-300">
+              只显示收藏 {showFavoritesOnly && `(${photos.length}/${allPhotos.length})`}
+            </span>
+          </label>
+        </div>
+      )}
 
       {/* Main Content */}
       <main className="container mx-auto px-6 py-8">
         {photos.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-[60vh] text-center">
             <div className="text-8xl mb-6">📷</div>
-            <h2 className="text-2xl font-semibold text-white mb-2">还没有照片</h2>
+            <h2 className="text-2xl font-semibold text-white mb-2">
+              {showFavoritesOnly ? '没有收藏照片' : '还没有照片'}
+            </h2>
             <p className="text-zinc-500">
-              这个胶卷还没有照片。
+              {showFavoritesOnly
+                ? '这个胶卷还没有收藏的照片。取消筛选以查看所有照片。'
+                : '这个胶卷还没有照片。'
+              }
             </p>
           </div>
         ) : (
@@ -240,6 +325,7 @@ export default function RollDetailPage() {
             selectedPhotos={selectedPhotos}
             onPhotoClick={handlePhotoClick}
             onToggleSelection={handleToggleSelection}
+            onToggleFavorite={handleToggleFavorite}
           />
         )}
       </main>
@@ -266,6 +352,7 @@ export default function RollDetailPage() {
           onClose={handleClosePreview}
           onNavigate={handleNavigatePreview}
           onSetCover={handleSetCover}
+          onToggleFavorite={handleToggleFavorite}
         />
       )}
 

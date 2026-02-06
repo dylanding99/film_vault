@@ -8,6 +8,7 @@ interface PhotoGridProps {
   selectedPhotos: Set<number>;
   onPhotoClick: (photo: Photo, index: number) => void;
   onToggleSelection: (photoId: number) => void;
+  onToggleFavorite: (photoId: number) => void;
 }
 
 export function PhotoGrid({
@@ -15,6 +16,7 @@ export function PhotoGrid({
   selectedPhotos,
   onPhotoClick,
   onToggleSelection,
+  onToggleFavorite,
 }: PhotoGridProps) {
   if (photos.length === 0) {
     return null;
@@ -30,6 +32,7 @@ export function PhotoGrid({
           isSelected={selectedPhotos.has(photo.id)}
           onClick={onPhotoClick}
           onToggleSelect={onToggleSelection}
+          onToggleFavorite={onToggleFavorite}
         />
       ))}
     </div>

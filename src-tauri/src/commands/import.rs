@@ -1,10 +1,10 @@
 use std::path::Path;
-use tauri::State;
+use tauri::{State, Manager, Emitter};
 use serde::{Deserialize, Serialize};
 use walkdir::WalkDir;
 
 use crate::database::{NewRoll, NewPhoto, create_roll, create_photos};
-use crate::image_processor::process_images_in_directory;
+use crate::image_processor::process_images_in_directory_with_progress;
 use crate::AppState;
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -24,6 +24,7 @@ pub struct ImportOptions {
     pub library_root: String,
     pub roll_name: Option<String>,
     pub notes: Option<String>,
+    pub copy_mode: bool, // true = copy, false = move
 }
 
 /// Import a folder of images as a new roll
@@ -31,6 +32,7 @@ pub struct ImportOptions {
 pub async fn import_folder(
     options: ImportOptions,
     state: State<'_, AppState>,
+    window: tauri::Window,
 ) -> Result<ImportResult, String> {
     eprintln!("[Import] import_folder called, waiting for database...");
 
@@ -66,73 +68,79 @@ pub async fn import_folder(
         return Err("Source path does not exist".to_string());
     }
 
-    // Parse shoot date to extract year and format date
+    // Parse shoot date to extract year
     let shoot_date = parse_shoot_date(&options.shoot_date)
         .map_err(|e| format!("Invalid shoot date: {}", e))?;
 
-    // Generate roll directory name: [YYYY]/[YYYY-MM-DD]_[FilmStock]_[Camera]/
     let year = &shoot_date[0..4];
-    let date_part = &shoot_date[0..10];
 
-    // Sanitize film stock and camera names for directory
-    let safe_film_stock = sanitize_filename(&options.film_stock);
-    let safe_camera = sanitize_filename(&options.camera);
+    // First, create roll in database to get the ID
+    let roll_name = options.roll_name.unwrap_or_else(|| format!("Roll - {}", &options.shoot_date));
+    let new_roll = NewRoll {
+        name: roll_name.clone(),
+        path: String::new(), // Will update after creating directory
+        film_stock: options.film_stock.clone(),
+        camera: options.camera.clone(),
+        lens: options.lens.clone(),
+        shoot_date: shoot_date.clone(),
+        lab_info: None,
+        notes: options.notes.clone(),
+    };
 
-    let dir_name = format!("{}_{}_{}", date_part, safe_film_stock, safe_camera);
+    let roll_id = create_roll(&pool, new_roll).await
+        .map_err(|e| format!("Failed to create roll in database: {}", e))?;
 
-    // Create full destination path
-    let mut roll_dir = Path::new(&options.library_root)
+    // Generate unique directory name from roll ID (8-character hex code)
+    let dir_code = format!("{:08X}", roll_id);
+    let roll_dir = Path::new(&options.library_root)
         .join(year)
-        .join(&dir_name);
-
-    // Handle path conflicts by adding a suffix
-    let mut counter = 1;
-    let original_dir_name = dir_name.clone();
-    while roll_dir.exists() {
-        let new_dir_name = format!("{}_{}", original_dir_name, counter);
-        roll_dir = Path::new(&options.library_root)
-            .join(year)
-            .join(&new_dir_name);
-        counter += 1;
-    }
+        .join(&dir_code);
 
     // Create roll directory
     std::fs::create_dir_all(&roll_dir)
         .map_err(|e| format!("Failed to create roll directory: {}", e))?;
 
-    // Process images (copy and generate thumbnails/preview)
-    let processed_images = process_images_in_directory(source_path, &roll_dir)
-        .map_err(|e| format!("Failed to process images: {}", e))?;
+    // Update roll path in database
+    let roll_path = roll_dir.to_string_lossy().to_string();
+    sqlx::query("UPDATE rolls SET path = ?1 WHERE id = ?2")
+        .bind(&roll_path)
+        .bind(roll_id)
+        .execute(&pool)
+        .await
+        .map_err(|e| format!("Failed to update roll path: {}", e))?;
+
+    eprintln!("[Import] Created roll directory: {:?}", roll_dir);
+
+    // Process images with progress callback
+    let app_handle = window.app_handle();
+    let processed_images = process_images_in_directory_with_progress(
+        source_path,
+        &roll_dir,
+        roll_id,
+        options.copy_mode,
+        |current, total, filename| {
+            // Send progress event to frontend
+            let _ = app_handle.emit("import-progress", serde_json::json!({
+                "current": current,
+                "total": total,
+                "filename": filename,
+                "rollId": roll_id,
+            }));
+        }
+    ).map_err(|e| format!("Failed to process images: {}", e))?;
 
     if processed_images.is_empty() {
         return Err("No images found in source directory".to_string());
     }
 
-    // Create roll in database
-    let roll_name = options.roll_name.unwrap_or_else(|| dir_name.clone());
-    let new_roll = NewRoll {
-        name: roll_name,
-        path: roll_dir.to_string_lossy().to_string(),
-        film_stock: options.film_stock.clone(),
-        camera: options.camera.clone(),
-        lens: options.lens,
-        shoot_date,
-        lab_info: None,
-        notes: options.notes,
-    };
-
-    let roll_id = create_roll(&pool, new_roll).await
-        .map_err(|e| format!("Failed to create roll in database: {}", e))?;
+    eprintln!("[Import] Processed {} images", processed_images.len());
 
     // Create photo records in database
     let new_photos: Vec<NewPhoto> = processed_images
         .iter()
         .map(|p| NewPhoto {
             roll_id,
-            filename: p.original_path.file_name()
-                .and_then(|n| n.to_str())
-                .unwrap_or("unknown")
-                .to_string(),
+            filename: p.filename.clone(),
             file_path: p.original_path.to_string_lossy().to_string(),
             thumbnail_path: Some(p.thumbnail_path.to_string_lossy().to_string()),
             preview_path: Some(p.preview_path.to_string_lossy().to_string()),
@@ -142,13 +150,19 @@ pub async fn import_folder(
     create_photos(&pool, new_photos).await
         .map_err(|e| format!("Failed to create photos in database: {}", e))?;
 
+    // Send completion event
+    let _ = app_handle.emit("import-complete", serde_json::json!({
+        "rollId": roll_id,
+        "count": processed_images.len(),
+        "path": roll_path,
+    }));
+
     Ok(ImportResult {
         roll_id,
         photos_count: processed_images.len(),
         message: format!(
-            "Successfully imported {} photos as roll '{}'",
-            processed_images.len(),
-            dir_name
+            "成功导入 {} 张照片到胶卷文件夹",
+            processed_images.len()
         ),
     })
 }

@@ -117,6 +117,10 @@ pub async fn main() {
             commands::rolls::read_image_as_base64,
             commands::rolls::delete_photo_command,
             commands::rolls::delete_photos_command,
+            // Favorite commands
+            commands::rolls::toggle_photo_favorite_command,
+            commands::rolls::update_photo_favorite_command,
+            commands::rolls::get_favorite_photos_by_roll_command,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

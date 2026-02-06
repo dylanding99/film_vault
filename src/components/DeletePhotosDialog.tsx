@@ -1,6 +1,5 @@
 'use client';
 
-import { useState, useEffect } from 'react';
 import { Trash2, AlertTriangle } from 'lucide-react';
 import {
   Dialog,
@@ -11,14 +10,13 @@ import {
   DialogFooter,
 } from './ui/dialog';
 import { Button } from './ui/button';
-import { Label } from './ui/label';
 import type { Photo } from '@/types/roll';
 
 interface DeletePhotosDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   photos: Photo[];
-  onDelete: (deleteFiles: boolean) => Promise<void>;
+  onDelete: () => Promise<void>;
   isDeleting?: boolean;
 }
 
@@ -29,20 +27,7 @@ export function DeletePhotosDialog({
   onDelete,
   isDeleting = false,
 }: DeletePhotosDialogProps) {
-  const [deleteFiles, setDeleteFiles] = useState(true);
-
-  // Reset state when dialog opens
-  useEffect(() => {
-    if (open) {
-      setDeleteFiles(true);
-    }
-  }, [open]);
-
   if (photos.length === 0) return null;
-
-  const handleDelete = async () => {
-    await onDelete(deleteFiles);
-  };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -63,53 +48,39 @@ export function DeletePhotosDialog({
             <AlertTriangle className="h-5 w-5 text-destructive flex-shrink-0 mt-0.5" />
             <div className="space-y-1 text-sm">
               <p className="font-medium text-destructive">
-                您即将删除 {photos.length} 张照片
+                ⚠️ 确认删除 {photos.length} 张照片？
               </p>
-              <div className="text-zinc-400 space-y-1">
+              <div className="text-zinc-400">
                 <p><strong>数量：</strong> {photos.length} 张</p>
               </div>
             </div>
           </div>
 
-          {/* File Deletion Options */}
-          <div className="space-y-3">
-            <Label className="text-base">文件删除选项</Label>
+          {/* Deletion Summary */}
+          <div className="text-sm text-zinc-400 space-y-2">
+            <p className="font-medium text-zinc-300">此操作将删除：</p>
+            <ul className="list-disc list-inside space-y-1 ml-2">
+              <li>数据库记录</li>
+              <li>缩略图和预览图</li>
+              <li>原始照片文件</li>
+            </ul>
+            <p className="text-destructive font-medium pt-2">
+              此操作无法撤销。
+            </p>
+          </div>
 
-            {/* Delete Files Checkbox */}
-            <div className="flex items-start gap-3 p-3 border border-zinc-800 rounded-md">
-              <input
-                type="checkbox"
-                id="delete-files"
-                checked={deleteFiles}
-                onChange={(e) => setDeleteFiles(e.target.checked)}
-                disabled={isDeleting}
-                className="mt-1 h-4 w-4 rounded border-zinc-600 bg-zinc-800"
-              />
-              <div className="flex-1">
-                <Label htmlFor="delete-files" className="cursor-pointer font-medium">
-                  同时删除缩略图和预览图
-                </Label>
-                <p className="text-sm text-zinc-500 mt-1">
-                  删除生成的缩略图和预览图文件（原始照片文件不会被删除）
-                </p>
-              </div>
-            </div>
-
-            {/* Info Box */}
-            <div className="p-3 bg-zinc-900/50 border border-zinc-800 rounded-md text-sm space-y-1">
-              <p className="text-zinc-400">
-                <strong className="text-zinc-300">数据库记录</strong> 将始终被删除
-              </p>
-              {deleteFiles && (
-                <p className="text-zinc-400">
-                  缩略图和预览图文件将被删除，原始照片文件将保留。
-                </p>
-              )}
-              {!deleteFiles && (
-                <p className="text-zinc-400">
-                  所有物理文件将保留在磁盘上。仅删除数据库记录。
-                </p>
-              )}
+          {/* Photos List Preview */}
+          <div className="max-h-40 overflow-y-auto border border-zinc-800 rounded-md p-2">
+            <div className="space-y-1">
+              {photos.map((photo) => (
+                <div
+                  key={photo.id}
+                  className="text-xs text-zinc-500 truncate px-2 py-1 hover:bg-zinc-900/50 rounded"
+                  title={photo.filename}
+                >
+                  {photo.filename}
+                </div>
+              ))}
             </div>
           </div>
         </div>
@@ -124,12 +95,12 @@ export function DeletePhotosDialog({
           </Button>
           <Button
             variant="destructive"
-            onClick={handleDelete}
+            onClick={onDelete}
             disabled={isDeleting}
             className="gap-2"
           >
             <Trash2 className="h-4 w-4" />
-            {isDeleting ? '删除中...' : '删除照片'}
+            {isDeleting ? '删除中...' : '确认删除'}
           </Button>
         </DialogFooter>
       </DialogContent>

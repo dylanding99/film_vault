@@ -21,6 +21,7 @@ export interface Photo {
   preview_path?: string;
   rating: number;
   is_cover: boolean;
+  is_favorite: boolean;
   lat?: number;
   lon?: number;
   exif_synced: boolean;
@@ -42,6 +43,7 @@ export interface ImportOptions {
   library_root: string;
   roll_name?: string;
   notes?: string;
+  copy_mode: boolean; // true = copy, false = move
 }
 
 export interface ImportResult {

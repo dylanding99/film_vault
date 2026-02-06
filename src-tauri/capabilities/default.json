@@ -12,6 +12,10 @@
     "core:path:allow-dirname",
     "core:path:allow-extname",
 
+    "core:event:default",
+    "core:event:allow-emit",
+    "core:event:allow-listen",
+
     "dialog:default",
     "dialog:allow-open",
 

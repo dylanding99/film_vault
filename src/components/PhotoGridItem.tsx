@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Check } from 'lucide-react';
+import { Check, Heart } from 'lucide-react';
 import { pathToAssetUrl } from '@/lib/utils';
 import type { Photo } from '@/types/roll';
 
@@ -11,6 +11,7 @@ interface PhotoGridItemProps {
   isSelected: boolean;
   onClick: (photo: Photo, index: number) => void;
   onToggleSelect: (photoId: number) => void;
+  onToggleFavorite: (photoId: number) => void;
 }
 
 export function PhotoGridItem({
@@ -19,6 +20,7 @@ export function PhotoGridItem({
   isSelected,
   onClick,
   onToggleSelect,
+  onToggleFavorite,
 }: PhotoGridItemProps) {
   const [thumbnailUrl, setThumbnailUrl] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -84,13 +86,6 @@ export function PhotoGridItem({
         />
       )}
 
-      {/* Rating Badge */}
-      {photo.rating > 0 && (
-        <div className="absolute top-2 left-2 px-2 py-1 rounded-full bg-black/70 text-white text-xs font-semibold">
-          ⭐ {photo.rating}
-        </div>
-      )}
-
       {/* Cover Badge */}
       {photo.is_cover && (
         <div className="absolute top-2 right-2 px-2 py-1 rounded-full bg-blue-600 text-white text-xs font-semibold">
@@ -148,6 +143,25 @@ export function PhotoGridItem({
         ) : (
           <div className="h-3 w-3 border-2 border-white rounded-sm" />
         )}
+      </div>
+
+      {/* Favorite Heart Button */}
+      <div
+        className={`
+          absolute bottom-2 right-2 p-2 rounded-full transition-all cursor-pointer
+          ${photo.is_favorite
+            ? 'bg-red-500/90 text-white scale-110'
+            : 'bg-black/50 text-white opacity-0 group-hover:opacity-100'
+          }
+        `}
+        onClick={(e) => {
+          e.stopPropagation();
+          onToggleFavorite(photo.id);
+        }}
+      >
+        <Heart
+          className={`h-4 w-4 ${photo.is_favorite ? 'fill-current' : ''}`}
+        />
       </div>
     </div>
   );

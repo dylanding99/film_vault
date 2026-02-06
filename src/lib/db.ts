@@ -140,3 +140,29 @@ export async function deletePhoto(photoId: number, deleteFiles: boolean): Promis
 export async function deletePhotos(request: DeletePhotosRequest): Promise<number> {
   return await invoke<number>('delete_photos_command', { request });
 }
+
+/**
+ * Toggle photo favorite status
+ */
+export async function togglePhotoFavorite(photoId: number): Promise<boolean> {
+  return await invoke<boolean>('toggle_photo_favorite_command', {
+    photoId,
+  });
+}
+
+/**
+ * Update photo favorite status
+ */
+export async function updatePhotoFavorite(photoId: number, isFavorite: boolean): Promise<boolean> {
+  return await invoke<boolean>('update_photo_favorite_command', {
+    photoId,
+    isFavorite,
+  });
+}
+
+/**
+ * Get favorite photos by roll ID
+ */
+export async function getFavoritePhotosByRoll(rollId: number): Promise<Photo[]> {
+  return await invoke<Photo[]>('get_favorite_photos_by_roll_command', { rollId });
+}

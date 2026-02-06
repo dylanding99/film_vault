@@ -6,7 +6,7 @@ import {
   DialogContent,
 } from './ui/dialog';
 import { Button } from './ui/button';
-import { ChevronLeft, ChevronRight, X, Star } from 'lucide-react';
+import { ChevronLeft, ChevronRight, X, Heart } from 'lucide-react';
 import { pathToAssetUrl } from '@/lib/utils';
 import type { Photo } from '@/types/roll';
 
@@ -18,6 +18,7 @@ interface PhotoPreviewDialogProps {
   onClose: () => void;
   onNavigate: (direction: 'prev' | 'next') => void;
   onSetCover: (rollId: number, photoId: number) => Promise<void>;
+  onToggleFavorite: (photoId: number) => Promise<void>;
 }
 
 export function PhotoPreviewDialog({
@@ -28,11 +29,13 @@ export function PhotoPreviewDialog({
   onClose,
   onNavigate,
   onSetCover,
+  onToggleFavorite,
 }: PhotoPreviewDialogProps) {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
   const [isSettingCover, setIsSettingCover] = useState(false);
+  const [isTogglingFavorite, setIsTogglingFavorite] = useState(false);
 
   useEffect(() => {
     if (photo.preview_path) {
@@ -96,6 +99,17 @@ export function PhotoPreviewDialog({
     }
   };
 
+  const handleToggleFavorite = async () => {
+    setIsTogglingFavorite(true);
+    try {
+      await onToggleFavorite(photo.id);
+    } catch (error) {
+      console.error('Failed to toggle favorite:', error);
+    } finally {
+      setIsTogglingFavorite(false);
+    }
+  };
+
   return (
     <Dialog open={true} onOpenChange={() => onClose()}>
       <DialogContent className="max-w-[95vw] max-h-[95vh] p-0 bg-black/95 border-zinc-800">
@@ -151,19 +165,23 @@ export function PhotoPreviewDialog({
             {/* Left: File info */}
             <div className="text-white">
               <div className="font-semibold truncate max-w-md">{photo.filename}</div>
-              <div className="text-sm text-zinc-400 flex items-center gap-3">
-                <span>{index + 1} / {total}</span>
-                {photo.rating > 0 && (
-                  <span className="flex items-center gap-1">
-                    <Star className="h-3 w-3 fill-yellow-500 text-yellow-500" />
-                    {photo.rating}
-                  </span>
-                )}
+              <div className="text-sm text-zinc-400">
+                {index + 1} / {total}
               </div>
             </div>
 
             {/* Right: Actions */}
             <div className="flex items-center gap-2">
+              <Button
+                onClick={handleToggleFavorite}
+                disabled={isTogglingFavorite}
+                size="sm"
+                variant={photo.is_favorite ? "default" : "secondary"}
+                className={photo.is_favorite ? "bg-red-500 hover:bg-red-600" : ""}
+              >
+                <Heart className={`h-4 w-4 mr-1 ${photo.is_favorite ? 'fill-current' : ''}`} />
+                {isTogglingFavorite ? '处理中...' : photo.is_favorite ? '已收藏' : '收藏'}
+              </Button>
               {!photo.is_cover && (
                 <Button
                   onClick={handleSetCover}

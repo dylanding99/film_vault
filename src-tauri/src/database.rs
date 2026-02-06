@@ -27,6 +27,7 @@ pub struct Photo {
     pub preview_path: Option<String>,
     pub rating: i32,
     pub is_cover: bool,
+    pub is_favorite: bool,
     pub lat: Option<f64>,
     pub lon: Option<f64>,
     pub exif_synced: bool,
@@ -88,6 +89,21 @@ pub async fn init_database(db_path: &str) -> Result<SqlitePool> {
                 eprintln!("[DB] Migration 002: Settings table already exist, skipping");
             } else {
                 eprintln!("[DB] Migration 002 error: {}", e);
+                return Err(e.into());
+            }
+        }
+    }
+
+    // Migration 003: Add is_favorite column to photos
+    let migration_003 = include_str!("../migrations/003_add_photo_favorite.sql");
+    match sqlx::query(migration_003).execute(&pool).await {
+        Ok(_) => eprintln!("[DB] Migration 003 executed successfully"),
+        Err(e) => {
+            let error_msg = e.to_string().to_lowercase();
+            if error_msg.contains("duplicate column") {
+                eprintln!("[DB] Migration 003: is_favorite column already exists, skipping");
+            } else {
+                eprintln!("[DB] Migration 003 error: {}", e);
                 return Err(e.into());
             }
         }
@@ -210,7 +226,7 @@ pub async fn create_photos(pool: &SqlitePool, photos: Vec<NewPhoto>) -> Result<V
 /// Get photos by roll ID
 pub async fn get_photos_by_roll(pool: &SqlitePool, roll_id: i64) -> Result<Vec<Photo>> {
     let photos = sqlx::query_as::<_, Photo>(
-        "SELECT id, roll_id, filename, file_path, thumbnail_path, preview_path, rating, is_cover, lat, lon, exif_synced, created_at FROM photos WHERE roll_id = ?1 ORDER BY filename"
+        "SELECT id, roll_id, filename, file_path, thumbnail_path, preview_path, rating, is_cover, is_favorite, lat, lon, exif_synced, created_at FROM photos WHERE roll_id = ?1 ORDER BY filename"
     )
     .bind(roll_id)
     .fetch_all(pool)
@@ -222,7 +238,7 @@ pub async fn get_photos_by_roll(pool: &SqlitePool, roll_id: i64) -> Result<Vec<P
 /// Get cover photo for a roll
 pub async fn get_roll_cover(pool: &SqlitePool, roll_id: i64) -> Result<Option<Photo>> {
     let photo = sqlx::query_as::<_, Photo>(
-        "SELECT id, roll_id, filename, file_path, thumbnail_path, preview_path, rating, is_cover, lat, lon, exif_synced, created_at FROM photos WHERE roll_id = ?1 AND is_cover = 1 LIMIT 1"
+        "SELECT id, roll_id, filename, file_path, thumbnail_path, preview_path, rating, is_cover, is_favorite, lat, lon, exif_synced, created_at FROM photos WHERE roll_id = ?1 AND is_cover = 1 LIMIT 1"
     )
     .bind(roll_id)
     .fetch_optional(pool)
@@ -309,4 +325,49 @@ pub async fn delete_photos(pool: &SqlitePool, photo_ids: Vec<i64>) -> Result<usi
 
     let result = query_builder.execute(pool).await?;
     Ok(result.rows_affected() as usize)
+}
+
+/// Toggle photo favorite status
+pub async fn toggle_photo_favorite(pool: &SqlitePool, photo_id: i64) -> Result<bool> {
+    // First get current status
+    let current = sqlx::query_scalar::<_, bool>(
+        "SELECT is_favorite FROM photos WHERE id = ?1"
+    )
+    .bind(photo_id)
+    .fetch_optional(pool)
+    .await?
+    .unwrap_or(false);
+
+    // Toggle the status
+    let new_status = !current;
+    let result = sqlx::query("UPDATE photos SET is_favorite = ?1 WHERE id = ?2")
+        .bind(new_status)
+        .bind(photo_id)
+        .execute(pool)
+        .await?;
+
+    Ok(result.rows_affected() > 0)
+}
+
+/// Update photo favorite status
+pub async fn update_photo_favorite(pool: &SqlitePool, photo_id: i64, is_favorite: bool) -> Result<bool> {
+    let result = sqlx::query("UPDATE photos SET is_favorite = ?1 WHERE id = ?2")
+        .bind(is_favorite)
+        .bind(photo_id)
+        .execute(pool)
+        .await?;
+
+    Ok(result.rows_affected() > 0)
+}
+
+/// Get favorite photos by roll ID
+pub async fn get_favorite_photos_by_roll(pool: &SqlitePool, roll_id: i64) -> Result<Vec<Photo>> {
+    let photos = sqlx::query_as::<_, Photo>(
+        "SELECT id, roll_id, filename, file_path, thumbnail_path, preview_path, rating, is_cover, is_favorite, lat, lon, exif_synced, created_at FROM photos WHERE roll_id = ?1 AND is_favorite = 1 ORDER BY filename"
+    )
+    .bind(roll_id)
+    .fetch_all(pool)
+    .await?;
+
+    Ok(photos)
 }

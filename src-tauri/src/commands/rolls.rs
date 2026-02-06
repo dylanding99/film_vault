@@ -8,6 +8,7 @@ use crate::database::{
     get_all_rolls, get_roll_by_id, update_roll, delete_roll,
     get_photos_by_roll, get_roll_cover, set_photo_as_cover,
     update_photo_rating, update_photo_location, delete_photo, delete_photos,
+    toggle_photo_favorite, update_photo_favorite, get_favorite_photos_by_roll,
 };
 use crate::AppState;
 
@@ -155,72 +156,12 @@ async fn delete_roll_files(
         return Ok(()); // Directory doesn't exist, consider it a success
     }
 
-    // 1. Delete thumbnails directory
-    let thumbnails_dir = path.join("thumbnails");
-    if thumbnails_dir.exists() {
-        eprintln!("[DeleteRoll] Deleting thumbnails directory: {:?}", thumbnails_dir);
-        fs::remove_dir_all(&thumbnails_dir)
-            .map_err(|e| format!("Failed to delete thumbnails: {}", e))?;
-    }
+    // Delete the entire roll directory (including originals/, thumbnails/, previews/)
+    eprintln!("[DeleteRoll] Removing entire roll directory: {:?}", path);
+    fs::remove_dir_all(path)
+        .map_err(|e| format!("Failed to remove roll directory: {}", e))?;
 
-    // 2. Delete previews directory
-    let previews_dir = path.join("previews");
-    if previews_dir.exists() {
-        eprintln!("[DeleteRoll] Deleting previews directory: {:?}", previews_dir);
-        fs::remove_dir_all(&previews_dir)
-            .map_err(|e| format!("Failed to delete previews: {}", e))?;
-    }
-
-    // 3. Optionally delete original files
-    if delete_originals {
-        eprintln!("[DeleteRoll] Deleting original files...");
-        let image_extensions = ["jpg", "jpeg", "png", "tif", "tiff", "webp", "bmp"];
-
-        let mut files_deleted = 0;
-        for entry in fs::read_dir(path)
-            .map_err(|e| format!("Failed to read roll directory: {}", e))?
-        {
-            let entry = entry.map_err(|e| format!("Failed to read directory entry: {}", e))?;
-            let file_path = entry.path();
-
-            // Skip directories
-            if file_path.is_dir() {
-                continue;
-            }
-
-            // Check file extension
-            if let Some(ext) = file_path.extension().and_then(|e| e.to_str()) {
-                if image_extensions.contains(&ext.to_lowercase().as_str()) {
-                    eprintln!("[DeleteRoll] Deleting file: {:?}", file_path);
-                    fs::remove_file(&file_path)
-                        .map_err(|e| format!("Failed to delete file {:?}: {}", file_path, e))?;
-                    files_deleted += 1;
-                }
-            }
-        }
-
-        eprintln!("[DeleteRoll] Deleted {} original files", files_deleted);
-
-        // Try to remove the directory if it's empty
-        if files_deleted > 0 {
-            let _ = fs::remove_dir(path); // Ignore error if directory not empty
-        }
-    } else {
-        // Check if directory is empty (only contains deleted subdirectories)
-        let remaining_files: Vec<_> = fs::read_dir(path)
-            .map_err(|e| format!("Failed to check remaining files: {}", e))?
-            .filter_map(|e| e.ok())
-            .filter(|e| e.path().is_file())
-            .collect();
-
-        if remaining_files.is_empty() {
-            eprintln!("[DeleteRoll] Removing empty directory: {:?}", path);
-            let _ = fs::remove_dir(path);
-        } else {
-            eprintln!("[DeleteRoll] Keeping directory with {} original files", remaining_files.len());
-        }
-    }
-
+    eprintln!("[DeleteRoll] Successfully removed roll directory");
     Ok(())
 }
 
@@ -379,6 +320,14 @@ async fn delete_photo_files(
         }
     }
 
+    // Delete original file
+    let original_path = Path::new(&photo.file_path);
+    if original_path.exists() {
+        eprintln!("[DeletePhoto] Deleting original: {:?}", original_path);
+        fs::remove_file(original_path)
+            .map_err(|e| format!("Failed to delete original: {}", e))?;
+    }
+
     Ok(())
 }
 
@@ -400,7 +349,7 @@ pub async fn delete_photo_command(
         // Get the photo from database - we need to query it properly
         // Let's use a different approach
         let photo = sqlx::query_as::<_, Photo>(
-            "SELECT id, roll_id, filename, file_path, thumbnail_path, preview_path, rating, is_cover, lat, lon, exif_synced, created_at FROM photos WHERE id = ?1"
+            "SELECT id, roll_id, filename, file_path, thumbnail_path, preview_path, rating, is_cover, is_favorite, lat, lon, exif_synced, created_at FROM photos WHERE id = ?1"
         )
         .bind(photo_id)
         .fetch_optional(&pool)
@@ -447,7 +396,7 @@ pub async fn delete_photos_command(
         for photo_id in &request.photo_ids {
             // Get photo info
             let photo = sqlx::query_as::<_, Photo>(
-                "SELECT id, roll_id, filename, file_path, thumbnail_path, preview_path, rating, is_cover, lat, lon, exif_synced, created_at FROM photos WHERE id = ?1"
+                "SELECT id, roll_id, filename, file_path, thumbnail_path, preview_path, rating, is_cover, is_favorite, lat, lon, exif_synced, created_at FROM photos WHERE id = ?1"
             )
             .bind(photo_id)
             .fetch_optional(&pool)
@@ -470,4 +419,41 @@ pub async fn delete_photos_command(
 
     eprintln!("[DeletePhotos] {} photos deleted successfully", count);
     Ok(count)
+}
+
+/// Toggle photo favorite status
+#[tauri::command]
+pub async fn toggle_photo_favorite_command(
+    photo_id: i64,
+    state: State<'_, AppState>,
+) -> Result<bool, String> {
+    let pool = get_pool(&state).await?;
+    toggle_photo_favorite(&pool, photo_id)
+        .await
+        .map_err(|e| format!("Failed to toggle favorite: {}", e))
+}
+
+/// Update photo favorite status
+#[tauri::command]
+pub async fn update_photo_favorite_command(
+    photo_id: i64,
+    is_favorite: bool,
+    state: State<'_, AppState>,
+) -> Result<bool, String> {
+    let pool = get_pool(&state).await?;
+    update_photo_favorite(&pool, photo_id, is_favorite)
+        .await
+        .map_err(|e| format!("Failed to update favorite: {}", e))
+}
+
+/// Get favorite photos by roll ID
+#[tauri::command]
+pub async fn get_favorite_photos_by_roll_command(
+    roll_id: i64,
+    state: State<'_, AppState>,
+) -> Result<Vec<Photo>, String> {
+    let pool = get_pool(&state).await?;
+    get_favorite_photos_by_roll(&pool, roll_id)
+        .await
+        .map_err(|e| format!("Failed to get favorite photos: {}", e))
 }
