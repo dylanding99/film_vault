@@ -72,7 +72,9 @@ Frontend communicates with Rust backend through Tauri's IPC mechanism. All backe
 | `src-tauri/src/database.rs` | SQLite connection pooling, migrations, queries |
 | `src-tauri/src/image_processor.rs` | Generates thumbnails (300px) and previews (1920px) as WebP |
 | `src-tauri/src/commands/import.rs` | File import, folder organization into `[YYYY]/[Date]_[Stock]_[Camera]/` |
-| `src-tauri/src/commands/rolls.rs` | CRUD operations for rolls and photos |
+| `src-tauri/src/commands/rolls.rs` | CRUD operations for rolls and photos, batch delete |
+| `src-tauri/src/commands/config.rs` | Configuration management (library root path) |
+| `src-tauri/src/config.rs` | Config module with default settings |
 
 ### Database Access Pattern
 
@@ -146,7 +148,19 @@ Windows: `%APPDATA%\com.filmvault.app\film_vault.db`
 
 ### UI Components
 - `src/components/ui/`: Base components (Button, Dialog, Input, Label, Select) - Shadcn/ui style, dark theme
-- `src/components/`: Business logic components (RollCard, ImportDialog, EditMetadataForm, FilmStripBadge)
+- `src/components/`: Business logic components
+  - **RollCard**: 胶卷卡片（支持选择模式）
+  - **ImportDialog**: 导入对话框
+  - **EditMetadataForm**: 元数据编辑表单
+  - **FilmStripBadge**: 胶卷型号颜色标识
+  - **BatchSelectionBar**: 批量选择操作栏（支持照片/胶卷）
+  - **DeleteRollDialog**: 删除胶卷确认对话框（支持单个/批量）
+  - **DeletePhotosDialog**: 删除照片确认对话框
+  - **SettingsDialog**: 设置对话框（自定义存储路径）
+  - **RollDetailHeader**: 胶卷详情页头部
+  - **PhotoGrid**: 照片网格布局
+  - **PhotoGridItem**: 照片网格项（支持选择）
+  - **PhotoPreviewDialog**: 照片全屏预览
 
 ### Film Stock Color Badges
 Film stocks have associated colors defined in `src/types/roll.ts` (FILM_STOCK_COLORS). The `FilmStripBadge` component renders these as visual indicators.

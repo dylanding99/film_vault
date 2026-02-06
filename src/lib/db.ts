@@ -6,6 +6,9 @@ import type {
   ImportOptions,
   ImportResult,
   UpdateRollRequest,
+  AppConfig,
+  DeleteRollRequest,
+  DeletePhotosRequest,
 } from '@/types/roll';
 
 /**
@@ -39,8 +42,8 @@ export async function updateRoll(request: UpdateRollRequest): Promise<boolean> {
 /**
  * Delete a roll
  */
-export async function deleteRoll(id: number): Promise<boolean> {
-  return await invoke<boolean>('delete_roll_command', { id });
+export async function deleteRoll(request: DeleteRollRequest): Promise<boolean> {
+  return await invoke<boolean>('delete_roll_command', { request });
 }
 
 /**
@@ -97,4 +100,43 @@ export async function updatePhotoLocation(
  */
 export async function getPhotosByRoll(rollId: number): Promise<Photo[]> {
   return await invoke<Photo[]>('get_photos_by_roll_command', { rollId });
+}
+
+/**
+ * Get application configuration
+ */
+export async function getConfig(): Promise<AppConfig> {
+  return await invoke<AppConfig>('get_config');
+}
+
+/**
+ * Get library root path
+ */
+export async function getLibraryRoot(): Promise<string> {
+  const config = await getConfig();
+  return config.library_root;
+}
+
+/**
+ * Update library root path
+ */
+export async function updateLibraryRoot(path: string): Promise<boolean> {
+  return await invoke<boolean>('update_library_root', { path });
+}
+
+/**
+ * Delete a single photo
+ */
+export async function deletePhoto(photoId: number, deleteFiles: boolean): Promise<boolean> {
+  return await invoke<boolean>('delete_photo_command', {
+    photoId,
+    deleteFiles,
+  });
+}
+
+/**
+ * Batch delete photos
+ */
+export async function deletePhotos(request: DeletePhotosRequest): Promise<number> {
+  return await invoke<number>('delete_photos_command', { request });
 }

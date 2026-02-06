@@ -1,10 +1,12 @@
 // Prevents additional console window on Windows in release
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+mod config;
 mod database;
 mod image_processor;
 mod commands;
 
+use config::init_default_config;
 use database::init_database;
 use sqlx::SqlitePool;
 use std::sync::Arc;
@@ -72,6 +74,12 @@ pub async fn main() {
                 match init_database(&db_connection_string).await {
                     Ok(pool) => {
                         eprintln!("[FilmVault] Database initialized successfully");
+
+                        // Initialize default configuration
+                        if let Err(e) = init_default_config(&pool).await {
+                            eprintln!("[FilmVault] Failed to initialize default config: {}", e);
+                        }
+
                         let state = handle.state::<AppState>();
                         let mut db_pool = state.db_pool.lock().await;
                         *db_pool = Some(pool);
@@ -90,6 +98,9 @@ pub async fn main() {
             db_pool: Arc::new(tokio::sync::Mutex::new(None)),
         })
         .invoke_handler(tauri::generate_handler![
+            // Config commands
+            commands::config::get_config,
+            commands::config::update_library_root,
             // Import commands
             commands::import::import_folder,
             commands::import::preview_import_count,
@@ -104,6 +115,8 @@ pub async fn main() {
             commands::rolls::update_photo_location_command,
             commands::rolls::get_photos_by_roll_command,
             commands::rolls::read_image_as_base64,
+            commands::rolls::delete_photo_command,
+            commands::rolls::delete_photos_command,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

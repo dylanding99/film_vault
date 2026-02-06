@@ -1,0 +1,188 @@
+'use client';
+
+import { useState, useEffect } from 'react';
+import {
+  Dialog,
+  DialogContent,
+} from './ui/dialog';
+import { Button } from './ui/button';
+import { ChevronLeft, ChevronRight, X, Star } from 'lucide-react';
+import { pathToAssetUrl } from '@/lib/utils';
+import type { Photo } from '@/types/roll';
+
+interface PhotoPreviewDialogProps {
+  photo: Photo;
+  index: number;
+  total: number;
+  rollId: number;
+  onClose: () => void;
+  onNavigate: (direction: 'prev' | 'next') => void;
+  onSetCover: (rollId: number, photoId: number) => Promise<void>;
+}
+
+export function PhotoPreviewDialog({
+  photo,
+  index,
+  total,
+  rollId,
+  onClose,
+  onNavigate,
+  onSetCover,
+}: PhotoPreviewDialogProps) {
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [hasError, setHasError] = useState(false);
+  const [isSettingCover, setIsSettingCover] = useState(false);
+
+  useEffect(() => {
+    if (photo.preview_path) {
+      console.log('[PhotoPreviewDialog', photo.id, '] Converting preview_path:', photo.preview_path);
+      pathToAssetUrl(photo.preview_path)
+        .then(url => {
+          console.log('[PhotoPreviewDialog', photo.id, '] Converted URL');
+          setPreviewUrl(url);
+          setIsLoading(false);
+        })
+        .catch(err => {
+          console.error('[PhotoPreviewDialog', photo.id, '] Failed to convert URL:', err);
+          setHasError(true);
+          setIsLoading(false);
+        });
+    } else if (photo.file_path) {
+      // Fallback to original file
+      console.log('[PhotoPreviewDialog', photo.id, '] Converting file_path (fallback):', photo.file_path);
+      pathToAssetUrl(photo.file_path)
+        .then(url => {
+          console.log('[PhotoPreviewDialog', photo.id, '] Converted URL (fallback)');
+          setPreviewUrl(url);
+          setIsLoading(false);
+        })
+        .catch(err => {
+          console.error('[PhotoPreviewDialog', photo.id, '] Failed to convert URL (fallback):', err);
+          setHasError(true);
+          setIsLoading(false);
+        });
+    } else {
+      setIsLoading(false);
+      setHasError(true);
+    }
+  }, [photo.preview_path, photo.file_path, photo.id]);
+
+  // Handle keyboard navigation
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'ArrowLeft') {
+        onNavigate('prev');
+      } else if (e.key === 'ArrowRight') {
+        onNavigate('next');
+      } else if (e.key === 'Escape') {
+        onClose();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [onNavigate, onClose]);
+
+  const handleSetCover = async () => {
+    if (photo.is_cover) return;
+    setIsSettingCover(true);
+    try {
+      await onSetCover(rollId, photo.id);
+    } catch (error) {
+      console.error('Failed to set cover:', error);
+    } finally {
+      setIsSettingCover(false);
+    }
+  };
+
+  return (
+    <Dialog open={true} onOpenChange={() => onClose()}>
+      <DialogContent className="max-w-[95vw] max-h-[95vh] p-0 bg-black/95 border-zinc-800">
+        {/* Close Button */}
+        <button
+          onClick={onClose}
+          className="absolute top-4 right-4 z-10 p-2 rounded-full bg-black/50 text-white hover:bg-black/70 transition-colors"
+        >
+          <X className="h-5 w-5" />
+        </button>
+
+        {/* Navigation Buttons */}
+        {total > 1 && (
+          <>
+            <button
+              onClick={() => onNavigate('prev')}
+              className="absolute left-4 top-1/2 -translate-y-1/2 z-10 p-3 rounded-full bg-black/50 text-white hover:bg-black/70 transition-colors"
+            >
+              <ChevronLeft className="h-6 w-6" />
+            </button>
+            <button
+              onClick={() => onNavigate('next')}
+              className="absolute right-4 top-1/2 -translate-y-1/2 z-10 p-3 rounded-full bg-black/50 text-white hover:bg-black/70 transition-colors"
+            >
+              <ChevronRight className="h-6 w-6" />
+            </button>
+          </>
+        )}
+
+        {/* Image Container */}
+        <div className="flex items-center justify-center min-h-[60vh]">
+          {isLoading ? (
+            <div className="flex items-center justify-center">
+              <div className="text-zinc-500">Loading...</div>
+            </div>
+          ) : hasError || !previewUrl ? (
+            <div className="flex flex-col items-center justify-center text-zinc-500">
+              <div className="text-6xl mb-4">📷</div>
+              <div>Failed to load image</div>
+            </div>
+          ) : (
+            <img
+              src={previewUrl}
+              alt={photo.filename}
+              className="max-w-full max-h-[80vh] object-contain"
+            />
+          )}
+        </div>
+
+        {/* Photo Info Footer */}
+        <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/80 to-transparent">
+          <div className="flex items-center justify-between">
+            {/* Left: File info */}
+            <div className="text-white">
+              <div className="font-semibold truncate max-w-md">{photo.filename}</div>
+              <div className="text-sm text-zinc-400 flex items-center gap-3">
+                <span>{index + 1} / {total}</span>
+                {photo.rating > 0 && (
+                  <span className="flex items-center gap-1">
+                    <Star className="h-3 w-3 fill-yellow-500 text-yellow-500" />
+                    {photo.rating}
+                  </span>
+                )}
+              </div>
+            </div>
+
+            {/* Right: Actions */}
+            <div className="flex items-center gap-2">
+              {!photo.is_cover && (
+                <Button
+                  onClick={handleSetCover}
+                  disabled={isSettingCover}
+                  size="sm"
+                  variant="secondary"
+                >
+                  {isSettingCover ? 'Setting...' : 'Set as Cover'}
+                </Button>
+              )}
+              {photo.is_cover && (
+                <div className="px-3 py-1.5 rounded-md bg-blue-600 text-white text-sm font-medium">
+                  Cover Photo
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}

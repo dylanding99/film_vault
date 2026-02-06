@@ -1,8 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
-  output: 'export',
-  distDir: 'out',
+  // Remove output: 'export' to support dynamic routes in Tauri
   images: {
     unoptimized: true,
   },

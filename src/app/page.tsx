@@ -2,28 +2,41 @@
 
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Plus } from 'lucide-react';
+import { Plus, Settings, CheckSquare } from 'lucide-react';
 import { RollCard } from '@/components/RollCard';
 import { ImportDialog } from '@/components/ImportDialog';
 import { EditMetadataForm } from '@/components/EditMetadataForm';
+import { SettingsDialog } from '@/components/SettingsDialog';
+import { BatchSelectionBar } from '@/components/BatchSelectionBar';
+import { DeleteRollDialog } from '@/components/DeleteRollDialog';
 import { Button } from '@/components/ui/button';
-import { getAllRolls, importFolder, updateRoll, getPhotosByRoll } from '@/lib/db';
-import type { Roll, Photo, ImportOptions, UpdateRollRequest } from '@/types/roll';
-import { appDataDir } from '@tauri-apps/api/path';
+import {
+  getAllRolls,
+  importFolder,
+  updateRoll,
+  getPhotosByRoll,
+  getLibraryRoot,
+  updateLibraryRoot,
+  deleteRoll,
+} from '@/lib/db';
+import type { Roll, Photo, ImportOptions, UpdateRollRequest, DeleteRollRequest } from '@/types/roll';
 
 export default function HomePage() {
   const queryClient = useQueryClient();
   const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [isSettingsDialogOpen, setIsSettingsDialogOpen] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [selectedRoll, setSelectedRoll] = useState<Roll | null>(null);
   const [libraryRoot, setLibraryRoot] = useState<string>('');
 
-  // Get library root path
+  // Batch selection states
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [selectedRolls, setSelectedRolls] = useState<Set<number>>(new Set());
+
+  // Load library root from config
   useEffect(() => {
-    appDataDir().then(dir => {
-      // Use app data dir as default library root
-      setLibraryRoot(dir);
-    });
+    getLibraryRoot().then(setLibraryRoot).catch(console.error);
   }, []);
 
   // Fetch all rolls
@@ -97,6 +110,87 @@ export default function HomePage() {
     });
   };
 
+  const handleSaveSettings = async (path: string) => {
+    await updateLibraryRoot(path);
+    setLibraryRoot(path);
+    // Refetch queries to update any paths
+    await queryClient.refetchQueries({ queryKey: ['rolls'] });
+  };
+
+  // Delete roll mutation
+  const deleteMutation = useMutation({
+    mutationFn: (request: DeleteRollRequest) => deleteRoll(request),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['rolls'] });
+      await queryClient.invalidateQueries({ queryKey: ['rolls', 'with-photos'] });
+      setSelectedRolls(new Set());
+      setSelectionMode(false);
+    },
+    onError: (error: Error) => {
+      console.error('Failed to delete roll:', error);
+      alert(`删除胶卷失败: ${error.message}`);
+    },
+  });
+
+  // Toggle selection mode
+  const handleToggleSelectionMode = () => {
+    setSelectionMode(!selectionMode);
+    setSelectedRolls(new Set());
+  };
+
+  // Toggle roll selection
+  const handleToggleRollSelection = (rollId: number) => {
+    const newSelected = new Set(selectedRolls);
+    if (newSelected.has(rollId)) {
+      newSelected.delete(rollId);
+    } else {
+      newSelected.add(rollId);
+    }
+    setSelectedRolls(newSelected);
+  };
+
+  // Select all rolls
+  const handleSelectAllRolls = () => {
+    if (rolls.length > 0) {
+      setSelectedRolls(new Set(rolls.map(r => r.id)));
+    }
+  };
+
+  // Clear roll selection
+  const handleClearRollSelection = () => {
+    setSelectedRolls(new Set());
+    setSelectionMode(false);
+  };
+
+  // Handle delete rolls
+  const handleDeleteRolls = () => {
+    if (selectedRolls.size > 0) {
+      setIsDeleteDialogOpen(true);
+    }
+  };
+
+  const handleConfirmDeleteRoll = async (deleteFiles: boolean, deleteOriginals: boolean) => {
+    // Delete each selected roll
+    for (const rollId of selectedRolls) {
+      try {
+        await deleteRoll({
+          id: rollId,
+          delete_files: deleteFiles,
+          delete_originals: deleteOriginals,
+        });
+      } catch (error) {
+        console.error(`Failed to delete roll ${rollId}:`, error);
+      }
+    }
+
+    // Refresh data and close dialog
+    await queryClient.invalidateQueries({ queryKey: ['rolls'] });
+    await queryClient.invalidateQueries({ queryKey: ['rolls', 'with-photos'] });
+    setSelectedRolls(new Set());
+    setSelectionMode(false);
+    setIsDeleteDialogOpen(false);
+  };
+
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
@@ -110,14 +204,34 @@ export default function HomePage() {
             </div>
           </div>
 
-          <Button
-            onClick={() => setIsImportDialogOpen(true)}
-            size="lg"
-            className="gap-2"
-          >
-            <Plus className="h-5 w-5" />
-            Import Roll
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => setIsSettingsDialogOpen(true)}
+              title="设置"
+            >
+              <Settings className="h-5 w-5" />
+            </Button>
+            {rolls.length > 0 && (
+              <Button
+                variant={selectionMode ? "default" : "outline"}
+                size="icon"
+                onClick={handleToggleSelectionMode}
+                title={selectionMode ? "退出选择模式" : "进入选择模式"}
+              >
+                <CheckSquare className="h-5 w-5" />
+              </Button>
+            )}
+            <Button
+              onClick={() => setIsImportDialogOpen(true)}
+              size="lg"
+              className="gap-2"
+            >
+              <Plus className="h-5 w-5" />
+              导入胶卷
+            </Button>
+          </div>
         </div>
       </header>
 
@@ -125,14 +239,14 @@ export default function HomePage() {
       <main className="container mx-auto px-6 py-8">
         {isLoading ? (
           <div className="flex items-center justify-center h-64">
-            <div className="text-zinc-500">Loading rolls...</div>
+            <div className="text-zinc-500">加载中...</div>
           </div>
         ) : rolls.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-[60vh] text-center">
             <div className="text-8xl mb-6">📷</div>
-            <h2 className="text-2xl font-semibold text-white mb-2">No Rolls Yet</h2>
+            <h2 className="text-2xl font-semibold text-white mb-2">还没有胶卷</h2>
             <p className="text-zinc-500 mb-6 max-w-md">
-              Import your first film roll to get started. Select a folder of photos and we'll organize them for you.
+              导入您的第一个胶卷开始使用。选择一个包含照片的文件夹，我们会为您整理。
             </p>
             <Button
               onClick={() => setIsImportDialogOpen(true)}
@@ -140,16 +254,16 @@ export default function HomePage() {
               className="gap-2"
             >
               <Plus className="h-5 w-5" />
-              Import Your First Roll
+              导入第一个胶卷
             </Button>
           </div>
         ) : (
           <>
             {/* Stats */}
             <div className="mb-8 flex items-center gap-6 text-sm text-zinc-500">
-              <span>{rolls.length} rolls</span>
+              <span>{rolls.length} 个胶卷</span>
               <span>·</span>
-              <span>Library: {libraryRoot}</span>
+              <span>图库: {libraryRoot}</span>
             </div>
 
             {/* Rolls Grid */}
@@ -161,6 +275,9 @@ export default function HomePage() {
                   coverPhoto={coverPhoto}
                   photoCount={photoCount}
                   onEdit={handleEdit}
+                  selectionMode={selectionMode}
+                  selected={selectedRolls.has(roll.id)}
+                  onToggleSelection={handleToggleRollSelection}
                 />
               ))}
             </div>
@@ -181,6 +298,34 @@ export default function HomePage() {
         onOpenChange={setIsEditDialogOpen}
         roll={selectedRoll}
         onSave={handleSaveEdit}
+      />
+
+      <SettingsDialog
+        open={isSettingsDialogOpen}
+        onOpenChange={setIsSettingsDialogOpen}
+        currentLibraryRoot={libraryRoot}
+        onSave={handleSaveSettings}
+      />
+
+      {/* Batch Selection Bar */}
+      {selectedRolls.size > 0 && (
+        <BatchSelectionBar
+          selectedCount={selectedRolls.size}
+          totalCount={rolls.length}
+          onSelectAll={handleSelectAllRolls}
+          onClearSelection={handleClearRollSelection}
+          onDelete={handleDeleteRolls}
+          itemType="roll"
+        />
+      )}
+
+      {/* Delete Roll Dialog */}
+      <DeleteRollDialog
+        open={isDeleteDialogOpen}
+        onOpenChange={setIsDeleteDialogOpen}
+        deleteCount={selectedRolls.size}
+        onDelete={handleConfirmDeleteRoll}
+        isDeleting={deleteMutation.isPending}
       />
     </div>
   );

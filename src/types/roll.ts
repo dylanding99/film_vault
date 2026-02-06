@@ -50,6 +50,10 @@ export interface ImportResult {
   message: string;
 }
 
+export interface AppConfig {
+  library_root: string;
+}
+
 export interface UpdateRollRequest {
   id: number;
   name: string;
@@ -59,6 +63,17 @@ export interface UpdateRollRequest {
   shoot_date: string;
   lab_info?: string;
   notes?: string;
+}
+
+export interface DeleteRollRequest {
+  id: number;
+  delete_files: boolean;
+  delete_originals: boolean;
+}
+
+export interface DeletePhotosRequest {
+  photo_ids: number[];
+  delete_files: boolean;
 }
 
 // Film stock color mappings

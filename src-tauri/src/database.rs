@@ -62,23 +62,38 @@ pub async fn init_database(db_path: &str) -> Result<SqlitePool> {
 
     // Run migrations
     eprintln!("[DB] Running migrations...");
-    let migration_sql = include_str!("../migrations/001_initial.sql");
 
-    // Execute migration
-    match sqlx::query(migration_sql).execute(&pool).await {
-        Ok(_) => eprintln!("[DB] Migrations executed successfully"),
+    // Migration 001: Initial schema
+    let migration_001 = include_str!("../migrations/001_initial.sql");
+    match sqlx::query(migration_001).execute(&pool).await {
+        Ok(_) => eprintln!("[DB] Migration 001 executed successfully"),
         Err(e) => {
-            // If it's a "table already exists" error, that's okay
             let error_msg = e.to_string().to_lowercase();
             if error_msg.contains("already exists") {
-                eprintln!("[DB] Tables already exist, skipping migration");
+                eprintln!("[DB] Migration 001: Tables already exist, skipping");
             } else {
-                eprintln!("[DB] Migration error: {}", e);
+                eprintln!("[DB] Migration 001 error: {}", e);
                 return Err(e.into());
             }
         }
     }
 
+    // Migration 002: Settings table
+    let migration_002 = include_str!("../migrations/002_settings.sql");
+    match sqlx::query(migration_002).execute(&pool).await {
+        Ok(_) => eprintln!("[DB] Migration 002 executed successfully"),
+        Err(e) => {
+            let error_msg = e.to_string().to_lowercase();
+            if error_msg.contains("already exists") {
+                eprintln!("[DB] Migration 002: Settings table already exist, skipping");
+            } else {
+                eprintln!("[DB] Migration 002 error: {}", e);
+                return Err(e.into());
+            }
+        }
+    }
+
+    eprintln!("[DB] All migrations completed");
     Ok(pool)
 }
 
@@ -260,4 +275,38 @@ pub async fn update_photo_location(
         .await?;
 
     Ok(result.rows_affected() > 0)
+}
+
+/// Delete a single photo by ID
+pub async fn delete_photo(pool: &SqlitePool, photo_id: i64) -> Result<bool> {
+    let result = sqlx::query("DELETE FROM photos WHERE id = ?1")
+        .bind(photo_id)
+        .execute(pool)
+        .await?;
+
+    Ok(result.rows_affected() > 0)
+}
+
+/// Batch delete photos by IDs
+pub async fn delete_photos(pool: &SqlitePool, photo_ids: Vec<i64>) -> Result<usize> {
+    if photo_ids.is_empty() {
+        return Ok(0);
+    }
+
+    // Build placeholder string: ?, ?, ?, ...
+    let placeholders = photo_ids.iter()
+        .enumerate()
+        .map(|(i, _)| format!("?{}", i + 1))
+        .collect::<Vec<_>>()
+        .join(", ");
+
+    let query = format!("DELETE FROM photos WHERE id IN ({})", placeholders);
+
+    let mut query_builder = sqlx::query(&query);
+    for photo_id in photo_ids {
+        query_builder = query_builder.bind(photo_id);
+    }
+
+    let result = query_builder.execute(pool).await?;
+    Ok(result.rows_affected() as usize)
 }
