@@ -56,7 +56,15 @@
       "Bash(Get-ChildItem:*)",
       "Bash(Where-Object { $_Name -like \"*PROBLEM*\" -or $_Name -like \"*ISSUE*\" -or $_Name -like \"*BUG*\" })",
       "Bash(git push:*)",
-      "Bash(git reset:*)"
+      "Bash(git reset:*)",
+      "Bash(timeout:*)",
+      "Bash(cd:*)",
+      "Bash(if:*)",
+      "Bash(then cp:*)",
+      "Bash(else echo \"exiftool.exe not found\")",
+      "Bash(fi:*)",
+      "Bash(Remove-Item:*)",
+      "Bash(del:*)"
     ]
   }
 }

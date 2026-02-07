@@ -1,10 +1,12 @@
 use std::path::Path;
-use tauri::{State, Manager, Emitter};
+use tauri::{State, Emitter, AppHandle};
 use serde::{Deserialize, Serialize};
 use walkdir::WalkDir;
+use futures::stream::{self, StreamExt};
 
 use crate::database::{NewRoll, NewPhoto, create_roll, create_photos};
 use crate::image_processor::process_images_in_directory_with_progress;
+use crate::exif_tool::{write_photo_roll_exif, parse_camera_string};
 use crate::AppState;
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -25,6 +27,7 @@ pub struct ImportOptions {
     pub roll_name: Option<String>,
     pub notes: Option<String>,
     pub copy_mode: bool, // true = copy, false = move
+    pub auto_write_exif: Option<bool>, // Whether to write EXIF to photos on import
 }
 
 /// Import a folder of images as a new roll
@@ -32,7 +35,7 @@ pub struct ImportOptions {
 pub async fn import_folder(
     options: ImportOptions,
     state: State<'_, AppState>,
-    window: tauri::Window,
+    app: AppHandle,
 ) -> Result<ImportResult, String> {
     eprintln!("[Import] import_folder called, waiting for database...");
 
@@ -112,13 +115,13 @@ pub async fn import_folder(
     eprintln!("[Import] Created roll directory: {:?}", roll_dir);
 
     // Process images with progress callback
-    let app_handle = window.app_handle();
+    let app_handle = app.clone();
     let processed_images = process_images_in_directory_with_progress(
         source_path,
         &roll_dir,
         roll_id,
         options.copy_mode,
-        |current, total, filename| {
+        move |current, total, filename| {
             // Send progress event to frontend
             let _ = app_handle.emit("import-progress", serde_json::json!({
                 "current": current,
@@ -136,6 +139,7 @@ pub async fn import_folder(
     eprintln!("[Import] Processed {} images", processed_images.len());
 
     // Create photo records in database
+    let photos_count = processed_images.len();
     let new_photos: Vec<NewPhoto> = processed_images
         .iter()
         .map(|p| NewPhoto {
@@ -150,19 +154,68 @@ pub async fn import_folder(
     create_photos(&pool, new_photos).await
         .map_err(|e| format!("Failed to create photos in database: {}", e))?;
 
+    // Write EXIF if enabled
+    if options.auto_write_exif.unwrap_or(false) {
+        eprintln!("[Import] Auto-writing EXIF to {} photos", photos_count);
+
+        // Parse camera string into make and model
+        let (make, model) = parse_camera_string(&options.camera);
+
+        // Format user comment with film stock
+        let user_comment = if !options.film_stock.is_empty() {
+            format!("Shot on {}", options.film_stock)
+        } else {
+            String::new()
+        };
+
+        // Format date time original from shoot_date (replace - with :)
+        let date_time_original = format_exif_date(&shoot_date);
+
+        // Write EXIF to all photos with concurrency control
+        let _results = stream::iter(processed_images)
+            .map(|p| {
+                let file_path = p.original_path.clone();
+                let make_clone = make.clone();
+                let model_clone = model.clone();
+                let lens_clone = options.lens.clone();
+                let date_clone = date_time_original.clone();
+                let comment_clone = user_comment.clone();
+
+                async move {
+                    (
+                        file_path.clone(),
+                        write_photo_roll_exif(
+                            &file_path.to_string_lossy(),
+                            &make_clone,
+                            &model_clone,
+                            lens_clone.as_deref(),
+                            &date_clone,
+                            &comment_clone,
+                        ).await
+                    )
+                }
+            })
+            .buffer_unordered(4) // Limit concurrency to 4
+            .collect::<Vec<_>>()
+            .await;
+
+        // Note: We don't check results here to avoid blocking import on EXIF write failures
+        // Errors are logged to console
+    }
+
     // Send completion event
-    let _ = app_handle.emit("import-complete", serde_json::json!({
+    let _ = app.emit("import-complete", serde_json::json!({
         "rollId": roll_id,
-        "count": processed_images.len(),
+        "count": photos_count,
         "path": roll_path,
     }));
 
     Ok(ImportResult {
         roll_id,
-        photos_count: processed_images.len(),
+        photos_count,
         message: format!(
             "成功导入 {} 张照片到胶卷文件夹",
-            processed_images.len()
+            photos_count
         ),
     })
 }
@@ -174,6 +227,13 @@ fn parse_shoot_date(date_str: &str) -> Result<String, String> {
         .map_err(|_| "Invalid date format. Use YYYY-MM-DD".to_string())?;
 
     Ok(parsed.format("%Y-%m-%d").to_string())
+}
+
+/// Format shoot date for EXIF (YYYY:MM:DD HH:MM:SS)
+fn format_exif_date(shoot_date: &str) -> String {
+    // shoot_date is in format "YYYY-MM-DD", convert to "YYYY:MM:DD 12:00:00"
+    // Replace dashes with colons and add default time
+    shoot_date.replace("-", ":") + " 12:00:00"
 }
 
 /// Sanitize filename by removing/replacing problematic characters
@@ -230,5 +290,17 @@ mod tests {
     fn test_parse_shoot_date() {
         assert!(parse_shoot_date("2024-01-15").is_ok());
         assert!(parse_shoot_date("invalid").is_err());
+    }
+
+    #[test]
+    fn test_format_exif_date() {
+        assert_eq!(
+            format_exif_date("2024-01-15"),
+            "2024:01:15 12:00:00"
+        );
+        assert_eq!(
+            format_exif_date("2023-12-31"),
+            "2023:12:31 12:00:00"
+        );
     }
 }

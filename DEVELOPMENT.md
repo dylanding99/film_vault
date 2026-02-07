@@ -1,4 +1,14 @@
-# 本地开发环境设置指南
+# FilmVault 开发指南
+
+详细的本地开发环境设置和开发指南。
+
+## 📖 相关文档
+
+- **README.md** - 项目概述和快速开始
+- **CLAUDE.md** - 项目架构（供 AI 助手使用）
+- **ROADMAP.md** - 功能规划和版本计划
+
+---
 
 ## 环境状态
 
@@ -375,23 +385,7 @@ npx tsc --noEmit
    - Windows Defender 或其他安全软件可能阻止编译
    - 将项目目录添加到排除列表
 
-## 项目文档
-
-- **README.md** - 项目概述和快速开始
-- **DEVELOPMENT.md** - 详细开发文档和架构说明
-- **CLAUDE.md** - AI 辅助开发指南（供 Claude Code 使用）
-
-## 下一步
-
-环境设置完成后，你可以：
-
-1. ✅ 启动开发服务器：`npm run tauri:dev`
-2. 📚 阅读 DEVELOPMENT.md 了解项目架构
-3. 🚀 开始开发新功能
-4. 📝 查看 src-tauri/src/commands/ 了解后端命令
-5. 🎨 查看 src/components/ 了解前端组件
-
 ---
 
-**最后更新**: 2026-02-06
+**最后更新**: 2026-02-07
 **环境**: Windows + Visual Studio Build Tools + Rust + Node.js

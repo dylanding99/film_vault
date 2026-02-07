@@ -2,11 +2,12 @@ use tauri::State;
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::Path;
+use base64::prelude::*;
 
 use crate::database::{
     Roll, Photo, NewRoll,
     get_all_rolls, get_roll_by_id, update_roll, delete_roll,
-    get_photos_by_roll, get_roll_cover, set_photo_as_cover,
+    get_photos_by_roll, get_photo_by_id, get_roll_cover, set_photo_as_cover,
     update_photo_rating, update_photo_location, delete_photo, delete_photos,
     toggle_photo_favorite, update_photo_favorite, get_favorite_photos_by_roll,
 };
@@ -147,7 +148,7 @@ pub async fn update_roll_command(
 /// Delete physical files associated with a roll
 async fn delete_roll_files(
     roll_path: &str,
-    delete_originals: bool,
+    _delete_originals: bool,  // Currently not used, deletes entire directory
 ) -> Result<(), String> {
     let path = Path::new(roll_path);
 
@@ -280,7 +281,7 @@ pub async fn read_image_as_base64(path: String) -> Result<String, String> {
         .map_err(|e| format!("Failed to read file: {}", e))?;
 
     // Encode to base64
-    let base64_string = base64::encode(&buffer);
+    let base64_string = BASE64_STANDARD.encode(&buffer);
 
     // Determine MIME type based on file extension
     let mime_type = if path.ends_with(".webp") {
@@ -341,33 +342,16 @@ pub async fn delete_photo_command(
     let pool = get_pool(&state).await?;
 
     // Get photo info before deleting from database
-    let roll_id = {
-        let photos = get_photos_by_roll(&pool, 0) // Placeholder, we'll get the photo first
-            .await
-            .map_err(|e| format!("Failed to get photos: {}", e))?;
-
-        // Get the photo from database - we need to query it properly
-        // Let's use a different approach
-        let photo = sqlx::query_as::<_, Photo>(
-            "SELECT id, roll_id, filename, file_path, thumbnail_path, preview_path, rating, is_cover, is_favorite, lat, lon, exif_synced, created_at FROM photos WHERE id = ?1"
-        )
-        .bind(photo_id)
-        .fetch_optional(&pool)
-        .await
+    let photo = get_photo_by_id(&pool, photo_id).await
         .map_err(|e| format!("Failed to get photo: {}", e))?
         .ok_or_else(|| "Photo not found".to_string())?;
 
-        let roll_id = photo.roll_id;
-
-        // Delete physical files if requested
-        if delete_files {
-            if let Err(e) = delete_photo_files(&photo).await {
-                eprintln!("[Warning] Failed to delete files for photo {}: {}", photo_id, e);
-            }
+    // Delete physical files if requested
+    if delete_files {
+        if let Err(e) = delete_photo_files(&photo).await {
+            eprintln!("[Warning] Failed to delete files for photo {}: {}", photo_id, e);
         }
-
-        roll_id
-    };
+    }
 
     // Delete from database
     let deleted = delete_photo(&pool, photo_id)
@@ -394,16 +378,8 @@ pub async fn delete_photos_command(
     // Get photos info before deleting from database
     if request.delete_files {
         for photo_id in &request.photo_ids {
-            // Get photo info
-            let photo = sqlx::query_as::<_, Photo>(
-                "SELECT id, roll_id, filename, file_path, thumbnail_path, preview_path, rating, is_cover, is_favorite, lat, lon, exif_synced, created_at FROM photos WHERE id = ?1"
-            )
-            .bind(photo_id)
-            .fetch_optional(&pool)
-            .await
-            .map_err(|e| format!("Failed to get photo: {}", e))?;
-
-            if let Some(photo) = photo {
+            // Get photo info using the new function
+            if let Ok(Some(photo)) = get_photo_by_id(&pool, *photo_id).await {
                 // Delete physical files
                 if let Err(e) = delete_photo_files(&photo).await {
                     eprintln!("[Warning] Failed to delete files for photo {}: {}", photo_id, e);

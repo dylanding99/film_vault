@@ -1,5 +1,4 @@
 use tauri::State;
-use serde::{Deserialize, Serialize};
 
 use crate::config::{AppConfig, get_library_root, set_library_root};
 use crate::AppState;

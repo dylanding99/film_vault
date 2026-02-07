@@ -26,6 +26,12 @@ export interface Photo {
   lon?: number;
   exif_synced: boolean;
   created_at: string;
+  // EXIF write tracking fields
+  exif_written_at?: string;
+  exif_data_hash?: string;
+  // User-editable metadata (stored in database)
+  exif_user_comment?: string;
+  exif_description?: string;
 }
 
 export interface RollWithPhotos {
@@ -44,6 +50,7 @@ export interface ImportOptions {
   roll_name?: string;
   notes?: string;
   copy_mode: boolean; // true = copy, false = move
+  auto_write_exif?: boolean; // Whether to write EXIF to photos on import
 }
 
 export interface ImportResult {

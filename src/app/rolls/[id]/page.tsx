@@ -353,6 +353,10 @@ export default function RollDetailPage() {
           onNavigate={handleNavigatePreview}
           onSetCover={handleSetCover}
           onToggleFavorite={handleToggleFavorite}
+          onPhotoUpdate={async () => {
+            await queryClient.invalidateQueries({ queryKey: ['roll', rollId] });
+            await queryClient.refetchQueries({ queryKey: ['roll', rollId] });
+          }}
         />
       )}
 

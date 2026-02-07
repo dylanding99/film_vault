@@ -30,6 +30,8 @@
   "bundle": {
     "active": true,
     "targets": "all",
-    "icon": []
+    "icon": [],
+    "externalBin": ["binaries/exiftool"],
+    "resources": ["binaries/exiftool_files/**/*"]
   }
 }

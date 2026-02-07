@@ -1,9 +1,11 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useSearchParams } from 'next/navigation';
 import { Plus, Settings, CheckSquare } from 'lucide-react';
 import { RollCard } from '@/components/RollCard';
+import { RollFilters } from '@/components/RollFilters';
 import { ImportDialog } from '@/components/ImportDialog';
 import { EditMetadataForm } from '@/components/EditMetadataForm';
 import { SettingsDialog } from '@/components/SettingsDialog';
@@ -18,26 +20,61 @@ import {
   getLibraryRoot,
   updateLibraryRoot,
   deleteRoll,
+  getConfig,
 } from '@/lib/db';
+import { filterRolls, searchParamsToFilters, filtersToSearchParams } from '@/lib/filter-utils';
 import type { Roll, Photo, ImportOptions, UpdateRollRequest, DeleteRollRequest } from '@/types/roll';
+import type { RollFilters as RollFiltersType } from '@/types/filter';
 
 export default function HomePage() {
   const queryClient = useQueryClient();
+  const searchParams = useSearchParams();
+
   const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isSettingsDialogOpen, setIsSettingsDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [selectedRoll, setSelectedRoll] = useState<Roll | null>(null);
-  const [libraryRoot, setLibraryRoot] = useState<string>('');
 
   // Batch selection states
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedRolls, setSelectedRolls] = useState<Set<number>>(new Set());
 
-  // Load library root from config
+  // Initialize filters from URL search params
+  const initialFilters = useMemo(() => {
+    const urlFilters = searchParamsToFilters(searchParams);
+    return {
+      searchTerm: urlFilters.searchTerm || '',
+      filmStock: urlFilters.filmStock || 'all',
+      camera: urlFilters.camera || 'all',
+      dateRange: urlFilters.dateRange || { from: null, to: null },
+      hasFavorites: urlFilters.hasFavorites || false,
+    };
+  }, [searchParams]);
+
+  const [filters, setFilters] = useState<RollFiltersType>(initialFilters);
+
+  // Sync filters with URL params (for page refresh scenarios)
   useEffect(() => {
-    getLibraryRoot().then(setLibraryRoot).catch(console.error);
-  }, []);
+    setFilters(initialFilters);
+  }, [initialFilters]);
+
+  // Update URL when filters change
+  useEffect(() => {
+    const params = filtersToSearchParams(filters);
+    const queryString = params.toString();
+    const newUrl = queryString ? `${window.location.pathname}?${queryString}` : window.location.pathname;
+    window.history.replaceState({}, '', newUrl);
+  }, [filters]);
+
+  // Fetch config (including library root) using React Query
+  const { data: config, isLoading: isConfigLoading } = useQuery({
+    queryKey: ['config'],
+    queryFn: getConfig,
+    staleTime: 1000, // Consider data fresh for 1 second
+  });
+
+  const libraryRoot = config?.library_root || '';
 
   // Fetch all rolls
   const { data: rolls = [], isLoading } = useQuery({
@@ -45,7 +82,7 @@ export default function HomePage() {
     queryFn: getAllRolls,
   });
 
-  // Fetch photos for each roll to get cover images
+  // Fetch photos for each roll to get cover images and favorite count
   const { data: rollsWithPhotos } = useQuery({
     queryKey: ['rolls', 'with-photos'],
     queryFn: async () => {
@@ -56,10 +93,13 @@ export default function HomePage() {
             console.log('[Roll', roll.id, '] Photos:', photos);
             const coverPhoto = photos.find(p => p.is_cover) || photos[0];
             console.log('[Roll', roll.id, '] Cover photo:', coverPhoto);
-            return { roll, coverPhoto, photoCount: photos.length };
+            const favoriteCount = photos.filter(p => p.is_favorite).length;
+            // Add favoriteCount to roll object for filtering
+            const rollWithCount = { ...roll, favoriteCount } as Roll & { favoriteCount: number };
+            return { roll: rollWithCount, coverPhoto, photoCount: photos.length };
           } catch (e) {
             console.error('[Roll', roll.id, '] Error fetching photos:', e);
-            return { roll, coverPhoto: undefined, photoCount: 0 };
+            return { roll, coverPhoto: undefined, photoCount: 0, favoriteCount: 0 };
           }
         })
       );
@@ -67,6 +107,19 @@ export default function HomePage() {
     },
     enabled: rolls.length > 0,
   });
+
+  // Apply filters to rolls
+  const filteredRolls = useMemo(() => {
+    const rollList = rollsWithPhotos?.map(item => item.roll) || [];
+    return filterRolls(rollList, filters);
+  }, [rollsWithPhotos, filters]);
+
+  // Get filtered rollswithPhotos data
+  const filteredRollsWithPhotos = useMemo(() => {
+    if (!rollsWithPhotos) return [];
+    const filteredIds = new Set(filteredRolls.map(r => r.id));
+    return rollsWithPhotos.filter(item => filteredIds.has(item.roll.id));
+  }, [rollsWithPhotos, filteredRolls]);
 
   // Import mutation
   const importMutation = useMutation({
@@ -135,8 +188,10 @@ export default function HomePage() {
 
   const handleSaveSettings = async (path: string) => {
     await updateLibraryRoot(path);
-    setLibraryRoot(path);
-    // Refetch queries to update any paths
+    // Invalidate config query to fetch updated value
+    await queryClient.invalidateQueries({ queryKey: ['config'] });
+    await queryClient.refetchQueries({ queryKey: ['config'] });
+    // Refetch rolls queries
     await queryClient.refetchQueries({ queryKey: ['rolls'] });
   };
 
@@ -315,28 +370,52 @@ export default function HomePage() {
           </div>
         ) : (
           <>
-            {/* Stats */}
-            <div className="mb-8 flex items-center gap-6 text-sm text-zinc-500">
-              <span>{rolls.length} 个胶卷</span>
-              <span>·</span>
-              <span>图库: {libraryRoot}</span>
-            </div>
+            {/* Filters */}
+            <RollFilters
+              rolls={rolls}
+              filters={filters}
+              onFiltersChange={setFilters}
+              filteredCount={filteredRolls.length}
+              totalCount={rolls.length}
+            />
 
             {/* Rolls Grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-              {rollsWithPhotos?.map(({ roll, coverPhoto, photoCount }) => (
-                <RollCard
-                  key={roll.id}
-                  roll={roll}
-                  coverPhoto={coverPhoto}
-                  photoCount={photoCount}
-                  onEdit={handleEdit}
-                  selectionMode={selectionMode}
-                  selected={selectedRolls.has(roll.id)}
-                  onToggleSelection={handleToggleRollSelection}
-                />
-              ))}
-            </div>
+            {filteredRollsWithPhotos.length === 0 ? (
+              <div className="flex flex-col items-center justify-center h-[40vh] text-center">
+                <div className="text-6xl mb-4">🔍</div>
+                <h2 className="text-xl font-semibold text-white mb-2">没有找到匹配的胶卷</h2>
+                <p className="text-zinc-500 mb-4">
+                  尝试调整您的搜索条件
+                </p>
+                <Button
+                  variant="outline"
+                  onClick={() => setFilters({
+                    searchTerm: '',
+                    filmStock: 'all',
+                    camera: 'all',
+                    dateRange: { from: null, to: null },
+                    hasFavorites: false,
+                  })}
+                >
+                  清除筛选条件
+                </Button>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                {filteredRollsWithPhotos.map(({ roll, coverPhoto, photoCount }) => (
+                  <RollCard
+                    key={roll.id}
+                    roll={roll}
+                    coverPhoto={coverPhoto}
+                    photoCount={photoCount}
+                    onEdit={handleEdit}
+                    selectionMode={selectionMode}
+                    selected={selectedRolls.has(roll.id)}
+                    onToggleSelection={handleToggleRollSelection}
+                  />
+                ))}
+              </div>
+            )}
           </>
         )}
       </main>

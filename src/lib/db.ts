@@ -10,6 +10,12 @@ import type {
   DeleteRollRequest,
   DeletePhotosRequest,
 } from '@/types/roll';
+import type {
+  ExifData,
+  ExifWriteResult,
+  WriteRollExifRequest,
+  WritePhotoExifRequest,
+} from '@/types/exif';
 
 /**
  * Get all rolls from the database
@@ -166,3 +172,54 @@ export async function updatePhotoFavorite(photoId: number, isFavorite: boolean):
 export async function getFavoritePhotosByRoll(rollId: number): Promise<Photo[]> {
   return await invoke<Photo[]>('get_favorite_photos_by_roll_command', { rollId });
 }
+
+// ==================== EXIF Functions ====================
+
+/**
+ * Check if ExifTool is available
+ * Returns true if ExifTool is installed and accessible
+ */
+export async function checkExifToolAvailable(): Promise<boolean> {
+  return await invoke<boolean>('check_exiftool_available_command');
+}
+
+/**
+ * Write roll-level EXIF to all photos in a roll
+ * Writes camera, lens, date, and film stock metadata to all photo files
+ */
+export async function writeRollExif(request: WriteRollExifRequest): Promise<ExifWriteResult> {
+  return await invoke<ExifWriteResult>('write_roll_exif_command', { request });
+}
+
+/**
+ * Write photo-level EXIF to a single photo
+ * Writes ISO, aperture, shutter speed, focal length, GPS, etc.
+ */
+export async function writePhotoExif(request: WritePhotoExifRequest): Promise<boolean> {
+  return await invoke<boolean>('write_photo_exif_command', { request });
+}
+
+/**
+ * Clear EXIF from a single photo
+ * Removes all EXIF metadata from a photo file
+ */
+export async function clearPhotoExif(photoId: number): Promise<boolean> {
+  return await invoke<boolean>('clear_photo_exif_command', { photoId });
+}
+
+/**
+ * Clear EXIF from all photos in a roll
+ * Removes all EXIF metadata from all photo files in a roll
+ */
+export async function clearRollExif(rollId: number): Promise<ExifWriteResult> {
+  return await invoke<ExifWriteResult>('clear_roll_exif_command', { rollId });
+}
+
+/**
+ * Read EXIF from a single photo file
+ * Extracts all EXIF metadata from the photo
+ */
+export async function readPhotoExif(photoId: number): Promise<ExifData> {
+  return await invoke<ExifData>('read_photo_exif_command', { photoId });
+}
+

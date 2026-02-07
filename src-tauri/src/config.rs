@@ -64,13 +64,20 @@ pub async fn get_library_root(pool: &SqlitePool) -> Result<String, String> {
     .map_err(|e| format!("Failed to get library_root from config: {}", e))?;
 
     match result {
-        Some(row) => Ok(row.0),
-        None => Ok(String::new()), // Return empty string if not found
+        Some(row) => {
+            eprintln!("[Config] Retrieved library_root from database: '{}'", row.0);
+            Ok(row.0)
+        },
+        None => {
+            eprintln!("[Config] No library_root found in database, returning empty string");
+            Ok(String::new()) // Return empty string if not found
+        }
     }
 }
 
 /// Set library root in configuration
 pub async fn set_library_root(pool: &SqlitePool, path: &str) -> Result<(), String> {
+    eprintln!("[Config] Setting library_root to: '{}'", path);
     sqlx::query(
         "INSERT INTO settings (key, value) VALUES ('library_root', ?1)
         ON CONFLICT(key) DO UPDATE SET value = ?1, updated_at = CURRENT_TIMESTAMP"
@@ -80,5 +87,6 @@ pub async fn set_library_root(pool: &SqlitePool, path: &str) -> Result<(), Strin
     .await
     .map_err(|e| format!("Failed to set library_root: {}", e))?;
 
+    eprintln!("[Config] library_root saved successfully to database");
     Ok(())
 }

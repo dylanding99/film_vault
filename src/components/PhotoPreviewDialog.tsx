@@ -6,9 +6,13 @@ import {
   DialogContent,
 } from './ui/dialog';
 import { Button } from './ui/button';
-import { ChevronLeft, ChevronRight, X, Heart } from 'lucide-react';
+import { ChevronLeft, ChevronRight, X, Heart, Info, Edit, Loader2 } from 'lucide-react';
 import { pathToAssetUrl } from '@/lib/utils';
 import type { Photo } from '@/types/roll';
+import type { ExifData } from '@/types/exif';
+import { ExifInfoPanel } from './ExifInfoPanel';
+import { PhotoMetadataForm } from './PhotoMetadataForm';
+import { readPhotoExif } from '@/lib/db';
 
 interface PhotoPreviewDialogProps {
   photo: Photo;
@@ -19,6 +23,7 @@ interface PhotoPreviewDialogProps {
   onNavigate: (direction: 'prev' | 'next') => void;
   onSetCover: (rollId: number, photoId: number) => Promise<void>;
   onToggleFavorite: (photoId: number) => Promise<void>;
+  onPhotoUpdate?: () => void;
 }
 
 export function PhotoPreviewDialog({
@@ -30,12 +35,24 @@ export function PhotoPreviewDialog({
   onNavigate,
   onSetCover,
   onToggleFavorite,
+  onPhotoUpdate,
 }: PhotoPreviewDialogProps) {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
   const [isSettingCover, setIsSettingCover] = useState(false);
   const [isTogglingFavorite, setIsTogglingFavorite] = useState(false);
+  const [showExifPanel, setShowExifPanel] = useState(false);
+  const [showEditExif, setShowEditExif] = useState(false);
+  const [exifData, setExifData] = useState<ExifData | null>(null);
+  const [isLoadingExif, setIsLoadingExif] = useState(false);
+  // Local state to track if current photo is cover (for immediate UI feedback)
+  const [isCover, setIsCover] = useState(photo.is_cover);
+
+  // Sync isCover state when photo prop changes (e.g., when navigating)
+  useEffect(() => {
+    setIsCover(photo.is_cover);
+  }, [photo.id, photo.is_cover]);
 
   useEffect(() => {
     if (photo.preview_path) {
@@ -71,6 +88,25 @@ export function PhotoPreviewDialog({
     }
   }, [photo.preview_path, photo.file_path, photo.id]);
 
+  // Load EXIF data when photo changes or panel opens
+  useEffect(() => {
+    if (showExifPanel && photo.id) {
+      setIsLoadingExif(true);
+      readPhotoExif(photo.id)
+        .then(data => {
+          console.log('[PhotoPreviewDialog] EXIF data loaded:', data);
+          setExifData(data);
+        })
+        .catch(err => {
+          console.error('[PhotoPreviewDialog] Failed to load EXIF:', err);
+          setExifData(null);
+        })
+        .finally(() => {
+          setIsLoadingExif(false);
+        });
+    }
+  }, [showExifPanel, photo.id]);
+
   // Handle keyboard navigation
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -88,10 +124,12 @@ export function PhotoPreviewDialog({
   }, [onNavigate, onClose]);
 
   const handleSetCover = async () => {
-    if (photo.is_cover) return;
+    if (isCover) return; // Use local state instead
     setIsSettingCover(true);
     try {
       await onSetCover(rollId, photo.id);
+      // Update local state for immediate UI feedback
+      setIsCover(true);
     } catch (error) {
       console.error('Failed to set cover:', error);
     } finally {
@@ -173,6 +211,24 @@ export function PhotoPreviewDialog({
             {/* Right: Actions */}
             <div className="flex items-center gap-2">
               <Button
+                onClick={() => setShowEditExif(true)}
+                size="sm"
+                variant="outline"
+                className="bg-zinc-800/80 hover:bg-zinc-700/80 border-zinc-600 text-white"
+              >
+                <Edit className="h-4 w-4 mr-1" />
+                编辑 EXIF
+              </Button>
+              <Button
+                onClick={() => setShowExifPanel(!showExifPanel)}
+                size="sm"
+                variant={showExifPanel ? "default" : "outline"}
+                className={showExifPanel ? "bg-blue-600 hover:bg-blue-700" : "bg-zinc-800/80 hover:bg-zinc-700/80 border-zinc-600 text-white"}
+              >
+                <Info className="h-4 w-4 mr-1" />
+                {showExifPanel ? '隐藏 EXIF' : 'EXIF 信息'}
+              </Button>
+              <Button
                 onClick={handleToggleFavorite}
                 disabled={isTogglingFavorite}
                 size="sm"
@@ -182,7 +238,7 @@ export function PhotoPreviewDialog({
                 <Heart className={`h-4 w-4 mr-1 ${photo.is_favorite ? 'fill-current' : ''}`} />
                 {isTogglingFavorite ? '处理中...' : photo.is_favorite ? '已收藏' : '收藏'}
               </Button>
-              {!photo.is_cover && (
+              {!isCover && (
                 <Button
                   onClick={handleSetCover}
                   disabled={isSettingCover}
@@ -192,7 +248,7 @@ export function PhotoPreviewDialog({
                   {isSettingCover ? 'Setting...' : 'Set as Cover'}
                 </Button>
               )}
-              {photo.is_cover && (
+              {isCover && (
                 <div className="px-3 py-1.5 rounded-md bg-blue-600 text-white text-sm font-medium">
                   Cover Photo
                 </div>
@@ -200,6 +256,46 @@ export function PhotoPreviewDialog({
             </div>
           </div>
         </div>
+
+        {/* EXIF Info Panel */}
+        {showExifPanel && (
+          <div className="absolute top-4 left-4 w-72">
+            {isLoadingExif ? (
+              <div className="bg-zinc-900/50 border border-zinc-800 rounded-lg p-4 flex items-center justify-center">
+                <Loader2 className="h-5 w-5 animate-spin text-zinc-400" />
+                <span className="ml-2 text-sm text-zinc-400">加载中...</span>
+              </div>
+            ) : (
+              <ExifInfoPanel photo={photo} exifData={exifData} />
+            )}
+          </div>
+        )}
+
+        {/* EXIF Edit Dialog */}
+        <PhotoMetadataForm
+          photo={photo}
+          open={showEditExif}
+          onClose={() => setShowEditExif(false)}
+          onUpdate={() => {
+            setShowEditExif(false);
+            // Reload EXIF data if panel is open
+            if (showExifPanel) {
+              setIsLoadingExif(true);
+              readPhotoExif(photo.id)
+                .then(data => {
+                  console.log('[PhotoPreviewDialog] EXIF data reloaded:', data);
+                  setExifData(data);
+                })
+                .catch(err => {
+                  console.error('[PhotoPreviewDialog] Failed to reload EXIF:', err);
+                })
+                .finally(() => {
+                  setIsLoadingExif(false);
+                });
+            }
+            onPhotoUpdate?.();
+          }}
+        />
       </DialogContent>
     </Dialog>
   );

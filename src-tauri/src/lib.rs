@@ -3,6 +3,7 @@
 
 mod config;
 mod database;
+mod exif_tool;
 mod image_processor;
 mod commands;
 
@@ -121,6 +122,13 @@ pub async fn main() {
             commands::rolls::toggle_photo_favorite_command,
             commands::rolls::update_photo_favorite_command,
             commands::rolls::get_favorite_photos_by_roll_command,
+            // EXIF commands
+            commands::exif::check_exiftool_available_command,
+            commands::exif::write_roll_exif_command,
+            commands::exif::write_photo_exif_command,
+            commands::exif::clear_photo_exif_command,
+            commands::exif::clear_roll_exif_command,
+            commands::exif::read_photo_exif_command,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

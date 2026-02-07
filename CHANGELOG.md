@@ -7,6 +7,111 @@
 
 ---
 
+## [0.3.0] - 2026-02-08
+
+### 新增
+
+**EXIF 模块**：
+- ✨ ExifInfoPanel 组件 - 显示照片 EXIF 信息（ISO、光圈、快门、焦距、GPS）
+- ✨ PhotoMetadataForm 组件 - 编辑单张照片的拍摄参数
+- ✨ EXIF 信息显示在照片预览对话框（可切换显示/隐藏）
+- ✨ 从文件读取 EXIF 数据功能
+- ✨ 保存 EXIF 到照片文件功能
+- ✨ EXIF 同步状态显示（已同步/未同步）
+- ✨ 写入时间追踪
+- ✨ 混合架构：胶卷元数据保留在数据库，照片 EXIF 从文件读取
+
+**筛选与搜索功能**：
+- ✨ RollFilters 组件 - 按胶卷型号筛选
+- ✨ RollFilters 组件 - 按相机筛选
+- ✨ 搜索框 - 按胶卷名称、备注搜索
+- ✨ 日期范围筛选
+- ✨ 收藏筛选（只看有收藏的胶卷）
+- ✨ URL 参数同步 - 支持分享筛选链接
+- ✨ 筛选条件持久化（刷新页面后保持）
+
+**设置页面增强**：
+- ✨ EXIF 设置面板
+- ✨ ExifTool 状态显示（可用/不可用/检查中）
+- ✨ 自动写入 EXIF 开关（全局设置）
+- ✨ 并发 EXIF 写入数设置（1-8 滑块）
+- ✨ 设置路径使用 React Query 管理（自动同步）
+- ✨ 设置界面完整中文化
+
+**UI 组件**：
+- ✨ Slider 组件 - 滑块输入（基于 Radix UI）
+- ✨ Switch 组件 - 开关切换（基于 Radix UI）
+
+### 技术实现
+**架构变更 - 混合 EXIF 方案**：
+- 胶卷层级元数据（相机、镜头、胶卷型号）保留在数据库
+- 照片层级 EXIF（ISO、光圈、快门、焦距）直接从文件读取
+- 优势：数据源单一，无需手动同步，不会出现不一致
+
+**前端（TypeScript + React）**：
+- 新建 `ExifInfoPanel.tsx` 组件
+- 新建 `PhotoMetadataForm.tsx` 组件
+- 更新 `PhotoPreviewDialog.tsx` 集成 EXIF 功能
+- 新建 `filter-utils.ts` 添加 URL 参数同步功能
+- 更新 `SettingsDialog.tsx` 添加 EXIF 配置面板
+- 更新 `page.tsx` 使用 React Query 管理配置状态
+- 新建 `ui/slider.tsx` 和 `ui/switch.tsx` 组件
+
+**后端（Rust）**：
+- EXIF 后端已在之前版本完成（`exif_tool.rs`、`commands/exif.rs`）
+- 更新 `Photo` 结构体移除照片级 EXIF 字段
+- 更新 `write_photo_exif_command` 只写入文件，不同步到数据库
+- 增强 `get_library_root` 和 `set_library_root` 日志输出
+
+**数据库变更**：
+- 迁移 004 - 添加 EXIF 写入追踪和照片级 EXIF 字段
+- 迁移 005 - 添加 EXIF 和 UI 设置字段
+- 迁移 006 - 移除照片级 EXIF 列（混合架构）
+- 新增 `settings` 表字段：
+  - `exif_auto_write` (INTEGER DEFAULT 1) - 自动写入 EXIF 开关
+  - `exif_concurrent_writes` (INTEGER DEFAULT 4) - 并发写入数
+- 迁移文件：
+  - `src-tauri/migrations/004_exif_write_tracking.sql`
+  - `src-tauri/migrations/005_settings_exif.sql`
+  - `src-tauri/migrations/006_remove_photo_exif.sql`
+
+### 改进
+- 🎨 照片详情页 UI 优化（EXIF 面板左上角浮动）
+- 🎨 筛选条件持久化（URL 参数同步）
+- 🎨 设置页面分组显示（存储/EXIF）
+- 🎨 状态管理优化（统一使用 React Query）
+
+### 已修复问题
+- ✅ 修复封面按钮状态更新问题（点击后立即显示反馈）
+- ✅ 修复删除封面后自动设置新封面
+- ✅ 修复设置路径保存后刷新显示问题（使用 React Query 管理配置）
+- ✅ 修复胶卷详情页 SQL 查询错误（get_roll_cover 移除已删除字段）
+- ✅ 移除海拔 EXIF 字段
+- ✅ 移除网格列数调整功能（用户需求）
+- ✅ 修复筛选后刷新页面丢失筛选条件（URL 参数同步）
+
+### Bug 修复详情
+**混合架构重构（体验优化 005）**：
+- 问题描述：数据库和文件双向同步 EXIF 容易出错
+- 修复方案：实施混合架构，胶卷元数据保留在数据库，照片 EXIF 从文件读取
+- 影响文件：数据库迁移 006、Photo 结构体、ExifInfoPanel、PhotoPreviewDialog
+
+**设置路径显示问题（体验优化 003）**：
+- 问题描述：设置路径后，第二次打开软件显示"(未设置)"
+- 修复方案：使用 React Query 直接管理配置状态，移除本地 useState
+- 影响文件：page.tsx、SettingsDialog.tsx
+
+**筛选条件持久化（体验优化 007）**：
+- 问题描述：筛选后刷新页面丢失筛选条件
+- 修复方案：使用 URL 参数同步筛选条件
+- 影响文件：filter-utils.ts、page.tsx
+
+**其他修复**：
+- 移除海拔 EXIF 字段（体验优化 004）
+- 移除网格列数调整功能（体验优化 006）
+
+---
+
 ## [0.2.1] - 2026-02-07
 
 ### 改进

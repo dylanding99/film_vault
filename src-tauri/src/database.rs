@@ -32,6 +32,12 @@ pub struct Photo {
     pub lon: Option<f64>,
     pub exif_synced: bool,
     pub created_at: String,
+    // EXIF write tracking fields
+    pub exif_written_at: Option<String>,
+    pub exif_data_hash: Option<String>,
+    // User-editable metadata (stored in database, not EXIF)
+    pub exif_user_comment: Option<String>,
+    pub exif_description: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -107,6 +113,84 @@ pub async fn init_database(db_path: &str) -> Result<SqlitePool> {
                 return Err(e.into());
             }
         }
+    }
+
+    // Migration 004: Add EXIF write tracking and photo-level EXIF fields
+    let migration_004 = include_str!("../migrations/004_exif_write_tracking.sql");
+    match sqlx::query(migration_004).execute(&pool).await {
+        Ok(_) => eprintln!("[DB] Migration 004 executed successfully"),
+        Err(e) => {
+            let error_msg = e.to_string().to_lowercase();
+            if error_msg.contains("duplicate column") {
+                eprintln!("[DB] Migration 004: EXIF columns already exist, skipping");
+            } else {
+                eprintln!("[DB] Migration 004 error: {}", e);
+                return Err(e.into());
+            }
+        }
+    }
+
+    // Migration 005: Add EXIF and UI settings
+    let migration_005 = include_str!("../migrations/005_settings_exif.sql");
+    match sqlx::query(migration_005).execute(&pool).await {
+        Ok(_) => eprintln!("[DB] Migration 005 executed successfully"),
+        Err(e) => {
+            let error_msg = e.to_string().to_lowercase();
+            if error_msg.contains("duplicate column") {
+                eprintln!("[DB] Migration 005: Settings columns already exist, skipping");
+            } else {
+                eprintln!("[DB] Migration 005 error: {}", e);
+                return Err(e.into());
+            }
+        }
+    }
+
+    // Migration 006: Remove photo-level EXIF fields
+    // Note: DROP COLUMN requires SQLite 3.35.0+. If it fails, the app will still work
+    // - Columns remain in DB but won't be used (EXIF read from files instead)
+    // - New installations: columns never existed, error is acceptable
+    // - Old SQLite: DROP COLUMN not supported, columns remain but unused
+    //
+    // Execute each DROP COLUMN separately since sqlx::query only handles one statement
+    let drop_columns = vec![
+        "ALTER TABLE photos DROP COLUMN exif_iso",
+        "ALTER TABLE photos DROP COLUMN exif_aperture",
+        "ALTER TABLE photos DROP COLUMN exif_shutter_speed",
+        "ALTER TABLE photos DROP COLUMN exif_focal_length",
+        "ALTER TABLE photos DROP COLUMN exif_altitude",
+    ];
+
+    let mut migration_006_success = true;
+    for drop_stmt in drop_columns {
+        match sqlx::query(drop_stmt).execute(&pool).await {
+            Ok(_) => {
+                eprintln!("[DB] Migration 006: Executed {}", drop_stmt);
+            }
+            Err(e) => {
+                let error_msg = e.to_string().to_lowercase();
+                // Ignore errors related to:
+                // - Columns not existing ("no such column")
+                // - SQLite version too old ("near drop", "syntax error")
+                // - Duplicate operations ("duplicate")
+                if error_msg.contains("no such column")
+                    || error_msg.contains("near drop")
+                    || error_msg.contains("syntax error")
+                    || error_msg.contains("duplicate") {
+                    eprintln!("[DB] Migration 006: Skipped {} (column doesn't exist or SQLite version too old)", drop_stmt);
+                    migration_006_success = false;
+                } else {
+                    eprintln!("[DB] Migration 006 error on '{}': {}", drop_stmt, e);
+                    return Err(e.into());
+                }
+            }
+        }
+    }
+
+    if migration_006_success {
+        eprintln!("[DB] Migration 006 executed successfully");
+    } else {
+        eprintln!("[DB] Migration 006: Partial execution (some columns didn't exist or SQLite version too old)");
+        eprintln!("[DB] Note: App will function normally - EXIF will be read from files");
     }
 
     eprintln!("[DB] All migrations completed");
@@ -226,7 +310,7 @@ pub async fn create_photos(pool: &SqlitePool, photos: Vec<NewPhoto>) -> Result<V
 /// Get photos by roll ID
 pub async fn get_photos_by_roll(pool: &SqlitePool, roll_id: i64) -> Result<Vec<Photo>> {
     let photos = sqlx::query_as::<_, Photo>(
-        "SELECT id, roll_id, filename, file_path, thumbnail_path, preview_path, rating, is_cover, is_favorite, lat, lon, exif_synced, created_at FROM photos WHERE roll_id = ?1 ORDER BY filename"
+        "SELECT id, roll_id, filename, file_path, thumbnail_path, preview_path, rating, is_cover, is_favorite, lat, lon, exif_synced, created_at, exif_written_at, exif_data_hash, exif_user_comment, exif_description FROM photos WHERE roll_id = ?1 ORDER BY filename"
     )
     .bind(roll_id)
     .fetch_all(pool)
@@ -235,10 +319,22 @@ pub async fn get_photos_by_roll(pool: &SqlitePool, roll_id: i64) -> Result<Vec<P
     Ok(photos)
 }
 
+/// Get a single photo by ID
+pub async fn get_photo_by_id(pool: &SqlitePool, photo_id: i64) -> Result<Option<Photo>> {
+    let photo = sqlx::query_as::<_, Photo>(
+        "SELECT id, roll_id, filename, file_path, thumbnail_path, preview_path, rating, is_cover, is_favorite, lat, lon, exif_synced, created_at, exif_written_at, exif_data_hash, exif_user_comment, exif_description FROM photos WHERE id = ?1"
+    )
+    .bind(photo_id)
+    .fetch_optional(pool)
+    .await?;
+
+    Ok(photo)
+}
+
 /// Get cover photo for a roll
 pub async fn get_roll_cover(pool: &SqlitePool, roll_id: i64) -> Result<Option<Photo>> {
     let photo = sqlx::query_as::<_, Photo>(
-        "SELECT id, roll_id, filename, file_path, thumbnail_path, preview_path, rating, is_cover, is_favorite, lat, lon, exif_synced, created_at FROM photos WHERE roll_id = ?1 AND is_cover = 1 LIMIT 1"
+        "SELECT id, roll_id, filename, file_path, thumbnail_path, preview_path, rating, is_cover, is_favorite, lat, lon, exif_synced, created_at, exif_written_at, exif_data_hash, exif_user_comment, exif_description FROM photos WHERE roll_id = ?1 AND is_cover = 1 LIMIT 1"
     )
     .bind(roll_id)
     .fetch_optional(pool)
@@ -304,6 +400,7 @@ pub async fn delete_photo(pool: &SqlitePool, photo_id: i64) -> Result<bool> {
 }
 
 /// Batch delete photos by IDs
+/// If cover photos are deleted, automatically sets new cover (first remaining photo)
 pub async fn delete_photos(pool: &SqlitePool, photo_ids: Vec<i64>) -> Result<usize> {
     if photo_ids.is_empty() {
         return Ok(0);
@@ -316,14 +413,54 @@ pub async fn delete_photos(pool: &SqlitePool, photo_ids: Vec<i64>) -> Result<usi
         .collect::<Vec<_>>()
         .join(", ");
 
+    // Before deleting, check which photos are covers and get their roll IDs
+    let select_query = format!("SELECT id, roll_id, is_cover FROM photos WHERE id IN ({})", placeholders);
+    let mut select_builder = sqlx::query_as::<_, (i64, i64, bool)>(&select_query);
+    for photo_id in &photo_ids {
+        select_builder = select_builder.bind(photo_id);
+    }
+    let ids_with_rolls = select_builder.fetch_all(pool).await?;
+
+    // Collect roll IDs that had their cover deleted
+    let mut affected_rolls: std::collections::HashSet<i64> = std::collections::HashSet::new();
+    for (_, roll_id, is_cover) in &ids_with_rolls {
+        if *is_cover {
+            affected_rolls.insert(*roll_id);
+        }
+    }
+
     let query = format!("DELETE FROM photos WHERE id IN ({})", placeholders);
 
     let mut query_builder = sqlx::query(&query);
-    for photo_id in photo_ids {
+    for photo_id in &photo_ids {
         query_builder = query_builder.bind(photo_id);
     }
 
     let result = query_builder.execute(pool).await?;
+
+    // If any cover photos were deleted, set new covers for affected rolls
+    if !affected_rolls.is_empty() {
+        for roll_id in affected_rolls {
+            // Set the first remaining photo as cover
+            if let Some(first_photo) = sqlx::query_as::<_, Photo>(
+                "SELECT id, roll_id, filename, file_path, thumbnail_path, preview_path, rating, is_cover, is_favorite, lat, lon, exif_synced, created_at, exif_written_at, exif_data_hash, exif_user_comment, exif_description FROM photos WHERE roll_id = ?1 ORDER BY id LIMIT 1"
+            )
+            .bind(roll_id)
+            .fetch_optional(pool)
+            .await?
+            {
+                // Found a photo to set as cover
+                let _ = sqlx::query("UPDATE photos SET is_cover = 1 WHERE id = ?1")
+                    .bind(first_photo.id)
+                    .execute(pool)
+                    .await?;
+                eprintln!("[DeletePhotos] Set new cover {} for roll {}", first_photo.id, roll_id);
+            } else {
+                eprintln!("[DeletePhotos] Roll {} has no photos left after deletion", roll_id);
+            }
+        }
+    }
+
     Ok(result.rows_affected() as usize)
 }
 
@@ -363,11 +500,56 @@ pub async fn update_photo_favorite(pool: &SqlitePool, photo_id: i64, is_favorite
 /// Get favorite photos by roll ID
 pub async fn get_favorite_photos_by_roll(pool: &SqlitePool, roll_id: i64) -> Result<Vec<Photo>> {
     let photos = sqlx::query_as::<_, Photo>(
-        "SELECT id, roll_id, filename, file_path, thumbnail_path, preview_path, rating, is_cover, is_favorite, lat, lon, exif_synced, created_at FROM photos WHERE roll_id = ?1 AND is_favorite = 1 ORDER BY filename"
+        "SELECT id, roll_id, filename, file_path, thumbnail_path, preview_path, rating, is_cover, is_favorite, lat, lon, exif_synced, created_at, exif_written_at, exif_data_hash, exif_user_comment, exif_description FROM photos WHERE roll_id = ?1 AND is_favorite = 1 ORDER BY filename"
     )
     .bind(roll_id)
     .fetch_all(pool)
     .await?;
 
     Ok(photos)
+}
+
+/// Update photo metadata (description, comment, sync status)
+/// Only updates user-editable fields, not EXIF from files
+pub async fn update_photo_metadata(
+    pool: &SqlitePool,
+    photo_id: i64,
+    exif_user_comment: Option<String>,
+    exif_description: Option<String>,
+) -> Result<bool> {
+    let result = sqlx::query(
+        r#"
+        UPDATE photos
+        SET exif_user_comment = ?1,
+            exif_description = ?2
+        WHERE id = ?3
+        "#
+    )
+    .bind(exif_user_comment)
+    .bind(exif_description)
+    .bind(photo_id)
+    .execute(pool)
+    .await?;
+
+    Ok(result.rows_affected() > 0)
+}
+
+/// Update photo EXIF sync status after writing to file
+pub async fn mark_photo_exif_synced(
+    pool: &SqlitePool,
+    photo_id: i64,
+) -> Result<bool> {
+    let result = sqlx::query(
+        r#"
+        UPDATE photos
+        SET exif_synced = 1,
+            exif_written_at = CURRENT_TIMESTAMP
+        WHERE id = ?1
+        "#
+    )
+    .bind(photo_id)
+    .execute(pool)
+    .await?;
+
+    Ok(result.rows_affected() > 0)
 }

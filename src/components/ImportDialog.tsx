@@ -61,6 +61,7 @@ export function ImportDialog({ open, onOpenChange, onImport, libraryRoot }: Impo
   const [rollName, setRollName] = useState('');
   const [notes, setNotes] = useState('');
   const [copyMode, setCopyMode] = useState(true); // true = copy, false = move
+  const [autoWriteExif, setAutoWriteExif] = useState(true); // Auto write EXIF on import
   const [isImporting, setIsImporting] = useState(false);
   const [previewCount, setPreviewCount] = useState<number | null>(null);
 
@@ -141,6 +142,7 @@ export function ImportDialog({ open, onOpenChange, onImport, libraryRoot }: Impo
         roll_name: rollName || undefined,
         notes: notes || undefined,
         copy_mode: copyMode,
+        auto_write_exif: autoWriteExif, // Pass auto_write_exif option
       });
 
       // Reset form (dialog will be closed by parent component)
@@ -150,6 +152,7 @@ export function ImportDialog({ open, onOpenChange, onImport, libraryRoot }: Impo
       setNotes('');
       setShootDate(new Date().toISOString().split('T')[0]);
       setCopyMode(true);
+      setAutoWriteExif(true);
       setImportProgress({ current: 0, total: 0, filename: '' });
     } catch (error) {
       console.error('Import failed:', error);
@@ -163,34 +166,34 @@ export function ImportDialog({ open, onOpenChange, onImport, libraryRoot }: Impo
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[600px]">
         <DialogHeader>
-          <DialogTitle>Import Film Roll</DialogTitle>
+          <DialogTitle>导入胶卷</DialogTitle>
           <DialogDescription>
-            Select a folder of photos to import as a new film roll.
+            选择一个包含照片的文件夹来导入新的胶卷
           </DialogDescription>
         </DialogHeader>
 
         <div className="grid gap-4 py-4">
           {/* Source Path */}
           <div className="grid gap-2">
-            <Label htmlFor="source">Source Folder</Label>
+            <Label htmlFor="source">源文件夹</Label>
             <div className="flex gap-2">
               <Input
                 id="source"
                 value={sourcePath}
                 onChange={(e) => setSourcePath(e.target.value)}
-                placeholder="Select folder containing photos..."
+                placeholder="选择包含照片的文件夹..."
                 className="flex-1"
                 readOnly
               />
               <Button onClick={handleSelectFolder} type="button" variant="outline">
-                Browse
+                浏览
               </Button>
             </div>
           </div>
 
           {/* Film Stock */}
           <div className="grid gap-2">
-            <Label htmlFor="film-stock">Film Stock</Label>
+            <Label htmlFor="film-stock">胶片类型</Label>
             <Select
               id="film-stock"
               value={filmStock}
@@ -206,7 +209,7 @@ export function ImportDialog({ open, onOpenChange, onImport, libraryRoot }: Impo
 
           {/* Camera */}
           <div className="grid gap-2">
-            <Label htmlFor="camera">Camera</Label>
+            <Label htmlFor="camera">相机</Label>
             <Select
               id="camera"
               value={camera}
@@ -222,18 +225,18 @@ export function ImportDialog({ open, onOpenChange, onImport, libraryRoot }: Impo
 
           {/* Lens */}
           <div className="grid gap-2">
-            <Label htmlFor="lens">Lens (Optional)</Label>
+            <Label htmlFor="lens">镜头 (可选)</Label>
             <Input
               id="lens"
               value={lens}
               onChange={(e) => setLens(e.target.value)}
-              placeholder="e.g., 50mm f/1.4"
+              placeholder="例如: 50mm f/1.4"
             />
           </div>
 
           {/* Shoot Date */}
           <div className="grid gap-2">
-            <Label htmlFor="date">Shoot Date</Label>
+            <Label htmlFor="date">拍摄日期</Label>
             <Input
               id="date"
               type="date"
@@ -244,23 +247,23 @@ export function ImportDialog({ open, onOpenChange, onImport, libraryRoot }: Impo
 
           {/* Roll Name */}
           <div className="grid gap-2">
-            <Label htmlFor="roll-name">Roll Name (Optional)</Label>
+            <Label htmlFor="roll-name">胶卷名称 (可选)</Label>
             <Input
               id="roll-name"
               value={rollName}
               onChange={(e) => setRollName(e.target.value)}
-              placeholder="Auto-generated if empty"
+              placeholder="留空则自动生成"
             />
           </div>
 
           {/* Notes */}
           <div className="grid gap-2">
-            <Label htmlFor="notes">Notes (Optional)</Label>
+            <Label htmlFor="notes">备注 (可选)</Label>
             <Input
               id="notes"
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
-              placeholder="Any additional notes..."
+              placeholder="任何附加备注..."
             />
           </div>
 
@@ -291,6 +294,22 @@ export function ImportDialog({ open, onOpenChange, onImport, libraryRoot }: Impo
             </div>
           </div>
 
+          {/* Auto Write EXIF */}
+          <div className="grid gap-2">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={autoWriteExif}
+                onChange={(e) => setAutoWriteExif(e.target.checked)}
+                className="w-4 h-4"
+              />
+              <span className="text-sm">导入时自动写入 EXIF</span>
+            </label>
+            <p className="text-xs text-zinc-500 ml-6">
+              建议勾选，元数据将永久嵌入照片文件（相机、镜头、胶片类型、拍摄日期等）
+            </p>
+          </div>
+
           {/* Import Progress */}
           {isImporting && importProgress.total > 0 && (
             <div className="grid gap-2 p-4 bg-zinc-800 rounded-lg">
@@ -319,10 +338,10 @@ export function ImportDialog({ open, onOpenChange, onImport, libraryRoot }: Impo
 
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isImporting}>
-            Cancel
+            取消
           </Button>
           <Button onClick={handleImport} disabled={isImporting || !sourcePath}>
-            {isImporting ? 'Importing...' : 'Import Roll'}
+            {isImporting ? '导入中...' : '导入胶卷'}
           </Button>
         </DialogFooter>
       </DialogContent>
