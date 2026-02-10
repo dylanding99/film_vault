@@ -21,6 +21,7 @@ src-tauri/Cargo.lock
 # Misc
 .DS_Store
 *.pem
+nul
 
 # Debug
 npm-debug.log*
@@ -43,11 +44,13 @@ next-env.d.ts
 .idea/
 *.swp
 *.swo
-nul
+
+# Claude Code
+.claude/
+
+# Devcontainer (optional - uncomment if not using Codespaces)
+# .devcontainer/
 
 # Local development scripts
 setup-dev-env.bat
 start-dev.bat
-
-# Keep PowerShell scripts (they're useful for automation)
-!init-dev.ps1
