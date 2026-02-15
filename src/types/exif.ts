@@ -2,11 +2,11 @@
  * FilmVault EXIF Types
  *
  * Type definitions for EXIF metadata operations
+ * Simplified version: only Make, Model, DateTimeOriginal, and UserComment
  */
 
 /**
  * EXIF data structure for reading EXIF from photos
- * Contains both roll-level and photo-level metadata
  */
 export interface ExifData {
   // Roll-level fields (from roll metadata)
@@ -16,17 +16,21 @@ export interface ExifData {
   date_time_original?: string; // Shooting date in EXIF format (YYYY:MM:DD HH:MM:SS)
   film_stock?: string;        // Film stock name (e.g., "Kodak Portra 400")
 
-  // Photo-level fields (shot-specific)
-  iso?: number;               // ISO sensitivity
-  aperture?: string;          // Aperture (e.g., "f/2.8", "f/1.4")
-  shutter_speed?: string;     // Shutter speed (e.g., "1/125", "1/500")
-  focal_length?: string;      // Focal length (e.g., "50mm", "35mm")
-  gps_latitude?: number;      // GPS latitude coordinate
-  gps_longitude?: number;     // GPS longitude coordinate
-  gps_altitude?: number;      // GPS altitude in meters
-  rating?: number;            // Photo rating (0-5)
-  user_comment?: string;      // User comment
-  description?: string;       // Photo description
+  // Photo-level fields
+  user_comment?: string;      // User comment (notes)
+
+  // Legacy fields (kept for reading from existing photos, but not written)
+  iso?: number;
+  aperture?: string;
+  shutter_speed?: string;
+  focal_length?: string;
+  gps_latitude?: number;
+  gps_longitude?: number;
+  gps_altitude?: number;
+  rating?: number;
+  description?: string;
+  gps_city?: string;
+  gps_country?: string;
 }
 
 /**
@@ -49,8 +53,12 @@ export interface WriteRollExifRequest {
 
 /**
  * Request structure for writing photo EXIF
+ * Writes UserComment in format: "Shot on {film_stock} | {city}, {country} | {user_comment}"
+ * - film_stock: from roll (required)
+ * - location: photo location takes priority, falls back to roll location
+ * - user_comment: user's notes for this photo
  */
 export interface WritePhotoExifRequest {
   photo_id: number;           // Photo ID to write EXIF for
-  exif_data: ExifData;        // EXIF data to write
+  user_comment?: string;      // User comment (notes) to write
 }

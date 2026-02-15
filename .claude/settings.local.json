@@ -64,7 +64,18 @@
       "Bash(else echo \"exiftool.exe not found\")",
       "Bash(fi:*)",
       "Bash(Remove-Item:*)",
-      "Bash(del:*)"
+      "Bash(del:*)",
+      "Bash(npx next build:*)",
+      "Bash($env:PATH = \"$env:USERPROFILE\\\\.cargo\\\\bin;$env:PATH\")",
+      "Bash(grep:*)",
+      "Bash(findstr:*)",
+      "Bash(tasklist:*)",
+      "Bash(./exiftool.exe:*)",
+      "Bash(sqlite3:*)",
+      "Bash(taskkill:*)",
+      "Bash($env:PATH += \";C:\\\\Users\\\\dylan\\\\.cargo\\\\bin\")",
+      "Bash(Start-Sleep:*)",
+      "Bash(Get-Content:*)"
     ]
   }
 }

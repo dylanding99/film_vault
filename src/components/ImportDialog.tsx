@@ -15,6 +15,7 @@ import * as DialogPlugin from '@tauri-apps/plugin-dialog';
 import { listen } from '@tauri-apps/api/event';
 import { FILM_STOCKS } from '@/types/roll';
 import { ImportOptions } from '@/types/roll';
+import { previewImportCount } from '@/lib/db';
 
 interface ImportDialogProps {
   open: boolean;
@@ -105,7 +106,6 @@ export function ImportDialog({ open, onOpenChange, onImport, libraryRoot }: Impo
 
         // Check if folder contains images
         try {
-          const { previewImportCount } = await import('@/lib/db');
           const count = await previewImportCount(selected);
           if (count === 0) {
             alert('选择的文件夹中没有找到图片文件（支持的格式：jpg, jpeg, png, webp, tif, tiff, bmp）');

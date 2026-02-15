@@ -1,6 +1,7 @@
 use sqlx::SqlitePool;
 use serde::{Deserialize, Serialize};
 use anyhow::Result;
+use anyhow::anyhow;
 
 #[derive(Debug, Serialize, Deserialize, Clone, sqlx::FromRow)]
 pub struct Roll {
@@ -13,6 +14,10 @@ pub struct Roll {
     pub shoot_date: String,
     pub lab_info: Option<String>,
     pub notes: Option<String>,
+    pub city: Option<String>,
+    pub country: Option<String>,
+    pub lat: Option<f64>,
+    pub lon: Option<f64>,
     pub created_at: String,
     pub updated_at: String,
 }
@@ -30,6 +35,8 @@ pub struct Photo {
     pub is_favorite: bool,
     pub lat: Option<f64>,
     pub lon: Option<f64>,
+    pub city: Option<String>,
+    pub country: Option<String>,
     pub exif_synced: bool,
     pub created_at: String,
     // EXIF write tracking fields
@@ -50,6 +57,10 @@ pub struct NewRoll {
     pub shoot_date: String,
     pub lab_info: Option<String>,
     pub notes: Option<String>,
+    pub city: Option<String>,
+    pub country: Option<String>,
+    pub lat: Option<f64>,
+    pub lon: Option<f64>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -193,6 +204,36 @@ pub async fn init_database(db_path: &str) -> Result<SqlitePool> {
         eprintln!("[DB] Note: App will function normally - EXIF will be read from files");
     }
 
+    // Migration 007: Add city and country to photos table
+    let migration_007 = include_str!("../migrations/007_add_photo_city.sql");
+    match sqlx::query(migration_007).execute(&pool).await {
+        Ok(_) => eprintln!("[DB] Migration 007 executed successfully"),
+        Err(e) => {
+            let error_msg = e.to_string().to_lowercase();
+            if error_msg.contains("duplicate column") {
+                eprintln!("[DB] Migration 007: city/country columns already exist, skipping");
+            } else {
+                eprintln!("[DB] Migration 007 error: {}", e);
+                return Err(e.into());
+            }
+        }
+    }
+
+    // Migration 008: Add location fields to rolls table
+    let migration_008 = include_str!("../migrations/008_add_roll_location.sql");
+    match sqlx::query(migration_008).execute(&pool).await {
+        Ok(_) => eprintln!("[DB] Migration 008 executed successfully"),
+        Err(e) => {
+            let error_msg = e.to_string().to_lowercase();
+            if error_msg.contains("duplicate column") {
+                eprintln!("[DB] Migration 008: location columns already exist, skipping");
+            } else {
+                eprintln!("[DB] Migration 008 error: {}", e);
+                return Err(e.into());
+            }
+        }
+    }
+
     eprintln!("[DB] All migrations completed");
     Ok(pool)
 }
@@ -222,7 +263,7 @@ pub async fn create_roll(pool: &SqlitePool, roll: NewRoll) -> Result<i64> {
 /// Get all rolls
 pub async fn get_all_rolls(pool: &SqlitePool) -> Result<Vec<Roll>> {
     let rolls = sqlx::query_as::<_, Roll>(
-        "SELECT id, name, path, film_stock, camera, lens, shoot_date, lab_info, notes, created_at, updated_at FROM rolls ORDER BY shoot_date DESC"
+        "SELECT id, name, path, film_stock, camera, lens, shoot_date, lab_info, notes, city, country, lat, lon, created_at, updated_at FROM rolls ORDER BY shoot_date DESC"
     )
     .fetch_all(pool)
     .await?;
@@ -233,7 +274,7 @@ pub async fn get_all_rolls(pool: &SqlitePool) -> Result<Vec<Roll>> {
 /// Get roll by ID
 pub async fn get_roll_by_id(pool: &SqlitePool, id: i64) -> Result<Option<Roll>> {
     let roll = sqlx::query_as::<_, Roll>(
-        "SELECT id, name, path, film_stock, camera, lens, shoot_date, lab_info, notes, created_at, updated_at FROM rolls WHERE id = ?1"
+        "SELECT id, name, path, film_stock, camera, lens, shoot_date, lab_info, notes, city, country, lat, lon, created_at, updated_at FROM rolls WHERE id = ?1"
     )
     .bind(id)
     .fetch_optional(pool)
@@ -242,14 +283,16 @@ pub async fn get_roll_by_id(pool: &SqlitePool, id: i64) -> Result<Option<Roll>> 
     Ok(roll)
 }
 
-/// Update roll metadata
+/// Update roll metadata (including location)
 pub async fn update_roll(pool: &SqlitePool, id: i64, roll: NewRoll) -> Result<bool> {
     let result = sqlx::query(
         r#"
         UPDATE rolls
         SET name = ?1, film_stock = ?2, camera = ?3, lens = ?4,
-            shoot_date = ?5, lab_info = ?6, notes = ?7, updated_at = CURRENT_TIMESTAMP
-        WHERE id = ?8
+            shoot_date = ?5, lab_info = ?6, notes = ?7,
+            city = ?8, country = ?9, lat = ?10, lon = ?11,
+            updated_at = CURRENT_TIMESTAMP
+        WHERE id = ?12
         "#
     )
     .bind(&roll.name)
@@ -259,6 +302,10 @@ pub async fn update_roll(pool: &SqlitePool, id: i64, roll: NewRoll) -> Result<bo
     .bind(&roll.shoot_date)
     .bind(&roll.lab_info)
     .bind(&roll.notes)
+    .bind(&roll.city)
+    .bind(&roll.country)
+    .bind(roll.lat)
+    .bind(roll.lon)
     .bind(id)
     .execute(pool)
     .await?;
@@ -310,7 +357,7 @@ pub async fn create_photos(pool: &SqlitePool, photos: Vec<NewPhoto>) -> Result<V
 /// Get photos by roll ID
 pub async fn get_photos_by_roll(pool: &SqlitePool, roll_id: i64) -> Result<Vec<Photo>> {
     let photos = sqlx::query_as::<_, Photo>(
-        "SELECT id, roll_id, filename, file_path, thumbnail_path, preview_path, rating, is_cover, is_favorite, lat, lon, exif_synced, created_at, exif_written_at, exif_data_hash, exif_user_comment, exif_description FROM photos WHERE roll_id = ?1 ORDER BY filename"
+        "SELECT id, roll_id, filename, file_path, thumbnail_path, preview_path, rating, is_cover, is_favorite, lat, lon, city, country, exif_synced, created_at, exif_written_at, exif_data_hash, exif_user_comment, exif_description FROM photos WHERE roll_id = ?1 ORDER BY filename"
     )
     .bind(roll_id)
     .fetch_all(pool)
@@ -322,7 +369,7 @@ pub async fn get_photos_by_roll(pool: &SqlitePool, roll_id: i64) -> Result<Vec<P
 /// Get a single photo by ID
 pub async fn get_photo_by_id(pool: &SqlitePool, photo_id: i64) -> Result<Option<Photo>> {
     let photo = sqlx::query_as::<_, Photo>(
-        "SELECT id, roll_id, filename, file_path, thumbnail_path, preview_path, rating, is_cover, is_favorite, lat, lon, exif_synced, created_at, exif_written_at, exif_data_hash, exif_user_comment, exif_description FROM photos WHERE id = ?1"
+        "SELECT id, roll_id, filename, file_path, thumbnail_path, preview_path, rating, is_cover, is_favorite, lat, lon, city, country, exif_synced, created_at, exif_written_at, exif_data_hash, exif_user_comment, exif_description FROM photos WHERE id = ?1"
     )
     .bind(photo_id)
     .fetch_optional(pool)
@@ -334,7 +381,7 @@ pub async fn get_photo_by_id(pool: &SqlitePool, photo_id: i64) -> Result<Option<
 /// Get cover photo for a roll
 pub async fn get_roll_cover(pool: &SqlitePool, roll_id: i64) -> Result<Option<Photo>> {
     let photo = sqlx::query_as::<_, Photo>(
-        "SELECT id, roll_id, filename, file_path, thumbnail_path, preview_path, rating, is_cover, is_favorite, lat, lon, exif_synced, created_at, exif_written_at, exif_data_hash, exif_user_comment, exif_description FROM photos WHERE roll_id = ?1 AND is_cover = 1 LIMIT 1"
+        "SELECT id, roll_id, filename, file_path, thumbnail_path, preview_path, rating, is_cover, is_favorite, lat, lon, city, country, exif_synced, created_at, exif_written_at, exif_data_hash, exif_user_comment, exif_description FROM photos WHERE roll_id = ?1 AND is_cover = 1 LIMIT 1"
     )
     .bind(roll_id)
     .fetch_optional(pool)
@@ -443,7 +490,7 @@ pub async fn delete_photos(pool: &SqlitePool, photo_ids: Vec<i64>) -> Result<usi
         for roll_id in affected_rolls {
             // Set the first remaining photo as cover
             if let Some(first_photo) = sqlx::query_as::<_, Photo>(
-                "SELECT id, roll_id, filename, file_path, thumbnail_path, preview_path, rating, is_cover, is_favorite, lat, lon, exif_synced, created_at, exif_written_at, exif_data_hash, exif_user_comment, exif_description FROM photos WHERE roll_id = ?1 ORDER BY id LIMIT 1"
+                "SELECT id, roll_id, filename, file_path, thumbnail_path, preview_path, rating, is_cover, is_favorite, lat, lon, city, country, exif_synced, created_at, exif_written_at, exif_data_hash, exif_user_comment, exif_description FROM photos WHERE roll_id = ?1 ORDER BY id LIMIT 1"
             )
             .bind(roll_id)
             .fetch_optional(pool)
@@ -500,7 +547,7 @@ pub async fn update_photo_favorite(pool: &SqlitePool, photo_id: i64, is_favorite
 /// Get favorite photos by roll ID
 pub async fn get_favorite_photos_by_roll(pool: &SqlitePool, roll_id: i64) -> Result<Vec<Photo>> {
     let photos = sqlx::query_as::<_, Photo>(
-        "SELECT id, roll_id, filename, file_path, thumbnail_path, preview_path, rating, is_cover, is_favorite, lat, lon, exif_synced, created_at, exif_written_at, exif_data_hash, exif_user_comment, exif_description FROM photos WHERE roll_id = ?1 AND is_favorite = 1 ORDER BY filename"
+        "SELECT id, roll_id, filename, file_path, thumbnail_path, preview_path, rating, is_cover, is_favorite, lat, lon, city, country, exif_synced, created_at, exif_written_at, exif_data_hash, exif_user_comment, exif_description FROM photos WHERE roll_id = ?1 AND is_favorite = 1 ORDER BY filename"
     )
     .bind(roll_id)
     .fetch_all(pool)
@@ -552,4 +599,98 @@ pub async fn mark_photo_exif_synced(
     .await?;
 
     Ok(result.rows_affected() > 0)
+}
+
+/// Update roll location (lat, lon, city, country)
+pub async fn update_roll_location(
+    pool: &SqlitePool,
+    roll_id: i64,
+    lat: Option<f64>,
+    lon: Option<f64>,
+    city: Option<String>,
+    country: Option<String>,
+) -> Result<bool> {
+    let result = sqlx::query(
+        r#"
+        UPDATE rolls
+        SET lat = ?1, lon = ?2, city = ?3, country = ?4, updated_at = CURRENT_TIMESTAMP
+        WHERE id = ?5
+        "#
+    )
+    .bind(lat)
+    .bind(lon)
+    .bind(city)
+    .bind(country)
+    .bind(roll_id)
+    .execute(pool)
+    .await?;
+
+    Ok(result.rows_affected() > 0)
+}
+
+/// Update photo location with city and country
+pub async fn update_photo_location_with_city(
+    pool: &SqlitePool,
+    photo_id: i64,
+    lat: Option<f64>,
+    lon: Option<f64>,
+    city: Option<String>,
+    country: Option<String>,
+) -> Result<bool> {
+    let result = sqlx::query(
+        r#"
+        UPDATE photos
+        SET lat = ?1, lon = ?2, city = ?3, country = ?4
+        WHERE id = ?5
+        "#
+    )
+    .bind(lat)
+    .bind(lon)
+    .bind(city)
+    .bind(country)
+    .bind(photo_id)
+    .execute(pool)
+    .await?;
+
+    Ok(result.rows_affected() > 0)
+}
+
+/// Apply roll location to all photos in the roll
+/// If location parameters are provided, use them; otherwise read from database
+/// Only updates photos that don't have their own location (lat IS NULL or city IS NULL)
+pub async fn apply_roll_location_to_photos(
+    pool: &SqlitePool,
+    roll_id: i64,
+    lat: Option<f64>,
+    lon: Option<f64>,
+    city: Option<String>,
+    country: Option<String>,
+) -> Result<usize> {
+    // If location parameters are not provided, read from database
+    let (lat, lon, city, country) = if lat.is_none() || city.is_none() {
+        let roll = get_roll_by_id(pool, roll_id).await?
+            .ok_or_else(|| anyhow!("Roll {} not found", roll_id))?;
+        (roll.lat, roll.lon, roll.city, roll.country)
+    } else {
+        (lat, lon, city, country)
+    };
+
+    // Update only photos that don't have their own location
+    let result = sqlx::query(
+        r#"
+        UPDATE photos
+        SET lat = ?1, lon = ?2, city = ?3, country = ?4
+        WHERE roll_id = ?5
+          AND (lat IS NULL OR lon IS NULL OR city IS NULL OR country IS NULL)
+        "#
+    )
+    .bind(lat)
+    .bind(lon)
+    .bind(&city)
+    .bind(&country)
+    .bind(roll_id)
+    .execute(pool)
+    .await?;
+
+    Ok(result.rows_affected() as usize)
 }

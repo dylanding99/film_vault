@@ -7,18 +7,22 @@
 
 ---
 
-## [0.3.0] - 2026-02-08
+## [0.4.0] - 2026-02-15
 
 ### 新增
 
-**EXIF 模块**：
+**位置功能增强**：
+- LocationSearchInput 组件 - 城市搜索和位置选择功能
+- 地理编码集成 - 使用 OpenStreetMap Nominatim API
+- 位置信息存储 - Roll 表和 Photo 表添加地理位置字段
+- 位置信息显示 - ExifInfoPanel 显示 GPS 坐标
+- 位置编辑 - EditMetadataForm 和 PhotoMetadataForm 支持位置选择
+
+**EXIF 模块优化**：
 - ExifInfoPanel 组件 - 显示照片 EXIF 信息（ISO、光圈、快门、焦距、GPS）
-- PhotoMetadataForm 组件 - 编辑单张照片的拍摄参数
-- EXIF 信息显示在照片预览对话框（可切换显示/隐藏）
+- PhotoMetadataForm 组件 - 编辑单张照片的拍摄参数和备注
 - 从文件读取 EXIF 数据功能
-- 保存 EXIF 到照片文件功能
-- EXIF 同步状态显示（已同步/未同步）
-- 写入时间追踪
+- 保存 EXIF 到文件功能
 - 混合架构：胶卷元数据保留在数据库，照片 EXIF 从文件读取
 
 **筛选与搜索功能**：
@@ -29,17 +33,99 @@
 - URL 参数同步 - 支持分享筛选链接
 - 筛选条件持久化（刷新页面后保持）
 
+### 改进
+
+**用户体验优化**：
+- 添加取消全选功能 - BatchSelectionBar 支持"取消全选"操作
+- 照片位置分层显示 - 优先显示照片位置，回退到胶卷位置
+- 设置页面简化 - 移除未实现的 EXIF 设置（exifAutoWrite, exifConcurrentWrites）
+- 位置应用到照片 - 只更新没有自己位置的照片
+- 状态管理优化（统一使用 React Query）
+
+### 已修复问题
+
+- 修复预览导航除零错误
+- 修复选择所有胶卷时使用全部而非筛选后的列表
+- 修复编辑胶卷时缺少位置字段
+- 移除动态导入，改为文件顶部导入（性能优化）
+- 添加用户友好的错误提示
+
+### 技术实现
+
+**架构变更 - 位置信息存储**：
+- 迁移 006 - 添加照片级地理位置字段
+- 迁移 007 - 添加胶卷级地理位置字段
+- 迁移 008 - 添加胶卷级地理位置字段
+- Roll 表和 Photo 表都有 city, country, lat, lon 字段
+
+**前端**：
+- 新建 `LocationSearchInput.tsx` 组件
+- 新建 `ExifInfoPanel.tsx` 组件
+- 新建 `PhotoMetadataForm.tsx` 组件
+- 新建 `filter-utils.ts` 添加 URL 参数同步功能
+- 更新 `PhotoPreviewDialog.tsx` 集成 EXIF 功能
+- 更新 `EditMetadataForm.tsx` 添加位置选择
+- 更新 `BatchSelectionBar.tsx` 添加取消全选功能
+
+**后端**：
+- 新建 `apply_roll_location_to_photos` 函数 - 批量应用胶卷位置到照片
+- 更新 `write_photo_exif_command` 获取胶卷信息并构建完整 UserComment
+- 更新 `write_roll_exif_command` 包含位置信息
+- 新增 `set_photo_location` 函数 - 设置单个照片位置
+- 新增 `get_photos_by_roll_with_location` 函数 - 获取带位置的照片列表
+- 增强 `get_library_root` 和 `set_library_root` 日志输出
+
+**数据库变更**：
+- 迁移 006 - 添加照片级地理位置字段（city, country, lat, lon）
+- 迁移 007 - 添加胶卷级地理位置字段（city, country, lat, lon）
+- 迁移 008 - 添加胶卷级地理位置字段（city, country, lat, lon）
+- 迁移 005 - 添加 EXIF 和 UI 设置字段（部分功能未实现）
+- 新增 `settings` 表字段：
+  - `exif_auto_write` (INTEGER DEFAULT 1)
+  - `exif_concurrent_writes` (INTEGER DEFAULT 4)
+
+---
+
+## [0.3.0] - 2026-02-15
+
+### 新增
+
+**EXIF 模块**：
+- ExifInfoPanel 组件 - 显示照片 EXIF 信息（ISO、光圈、快门、焦距、GPS）
+- PhotoMetadataForm 组件 - 编辑单张照片的拍摄参数
+- 从文件读取 EXIF 数据功能
+- 保存 EXIF 到文件功能
+- 混合架构：胶卷元数据保留在数据库，照片 EXIF 从文件读取
+
+**筛选与搜索功能**：
+- RollFilters 组件 - 按胶卷型号、相机筛选
+- 搜索框 - 按胶卷名称、备注搜索
+- 日期范围筛选
+- 收藏筛选（只看有收藏的胶卷）
+- URL 参数同步 - 支持分享筛选链接
+
 **设置页面增强**：
 - EXIF 设置面板
-- ExifTool 状态显示（可用/不可用/检查中）
-- 自动写入 EXIF 开关（全局设置）
-- 并发 EXIF 写入数设置（1-8 滑块）
-- 设置路径使用 React Query 管理（自动同步）
-- 设置界面完整中文化
+- 位置信息应用到照片功能（只更新没有自己位置的照片）
 
-**UI 组件**：
-- Slider 组件 - 滑块输入（基于 Radix UI）
-- Switch 组件 - 开关切换（基于 Radix UI）
+### 改进
+
+**EXIF 信息显示**：
+- 照片详情页 UI 优化（EXIF 面板左上角浮动）
+- 添加 EXIF 同步状态显示（已同步/未同步）
+
+**用户体验优化**：
+- 添加取消全选功能
+- 设置页面分组显示（存储/EXIF）
+- 状态管理优化（统一使用 React Query）
+
+### 已修复问题
+
+- 修复预览导航除零错误
+- 修复选择所有胶卷时使用全部而非筛选后的列表
+- 修复编辑胶卷时缺少位置字段
+- 移除动态导入，改为文件顶部导入（性能优化）
+- 添加用户友好的错误提示
 
 ### 技术实现
 
@@ -48,61 +134,29 @@
 - 照片层级 EXIF（ISO、光圈、快门、焦距）直接从文件读取
 - 优势：数据源单一，无需手动同步，不会出现不一致
 
-**前端（TypeScript + React）**：
+**前端**：
 - 新建 `ExifInfoPanel.tsx` 组件
 - 新建 `PhotoMetadataForm.tsx` 组件
 - 更新 `PhotoPreviewDialog.tsx` 集成 EXIF 功能
 - 新建 `filter-utils.ts` 添加 URL 参数同步功能
 - 更新 `SettingsDialog.tsx` 添加 EXIF 配置面板
 
-**后端（Rust）**：
+**后端**：
 - 更新 `Photo` 结构体移除照片级 EXIF 字段
 - 更新 `write_photo_exif_command` 只写入文件，不同步到数据库
+- 新增 `settings` 表字段（exif_auto_write, exif_concurrent_writes）
 - 增强 `get_library_root` 和 `set_library_root` 日志输出
+- 更新 `apply_roll_location_to_photos` 只更新没有自己位置的照片
 
 **数据库变更**：
-- 迁移 004 - 添加 EXIF 写入追踪和照片级 EXIF 字段
+- 迁移 006 - 添加照片级地理位置字段
+- 迁移 007 - 添加胶卷级地理位置字段
+- 迁移 008 - 添加胶卷级地理位置字段
 - 迁移 005 - 添加 EXIF 和 UI 设置字段
-- 迁移 006 - 移除照片级 EXIF 列（混合架构）
-- 新增 `settings` 表字段：
-  - `exif_auto_write` (INTEGER DEFAULT 1)
-  - `exif_concurrent_writes` (INTEGER DEFAULT 4)
-
-### 改进
-- 照片详情页 UI 优化（EXIF 面板左上角浮动）
-- 筛选条件持久化（URL 参数同步）
-- 设置页面分组显示（存储/EXIF）
-- 状态管理优化（统一使用 React Query）
-
-### 已修复问题
-- 修复封面按钮状态更新问题（点击后立即显示反馈）
-- 修复删除封面后自动设置新封面
-- 修复设置路径保存后刷新显示问题（使用 React Query 管理配置）
-- 修复胶卷详情页 SQL 查询错误（get_roll_cover 移除已删除字段）
-- 移除海拔 EXIF 字段
-- 移除网格列数调整功能
-- 修复筛选后刷新页面丢失筛选条件（URL 参数同步）
 
 ---
 
 ## [0.2.1] - 2026-02-07
-
-### 改进
-- 简化删除功能，移除复杂的删除选项
-- 统一删除逻辑：胶卷删除直接删除整个文件夹，照片删除包含原图
-- 优化删除后的缓存刷新，避免加载已删除文件
-
-### 已修复问题
-- 删除胶卷后立即从列表移除（无需刷新）
-- 删除后不再尝试加载已删除文件
-- 修复详情页删除胶卷后的导航问题
-- 修复导入后列表不刷新问题（使用 resetQueries）
-- 修复预览对话框收藏状态不同步问题
-- 修复导入空文件夹创建空胶卷问题
-
----
-
-## [0.2.0] - 2026-02-06
 
 ### 新增
 
@@ -110,7 +164,6 @@
 - 设置对话框，可自定义图库存储路径
 - 配置持久化（SQLite settings 表）
 - 首次运行自动检测并提示设置存储位置
-- 支持修改存储路径
 
 **胶卷详情页面**：
 - 点击胶卷卡片进入详情页
@@ -120,39 +173,53 @@
 - 设置封面照片功能
 - 照片数量统计
 
-**删除功能（胶卷和照片）**：
+**删除功能**：
 - 批量删除胶卷（选择模式）
 - 批量删除照片（详情页）
-- 删除确认对话框（防止误删）
+- 删除确认对话框
 - 文件删除选项：删除缩略图和预览图、可选删除原始照片文件
 
 **用户界面优化**：
-- 完整中文化（所有 UI 提示和操作按钮）
+- 完整中文化界面
 - 选择模式按钮（首页头部工具栏）
 - 批量操作栏（底部固定）
 - 选中状态视觉反馈（蓝色高亮 + 勾选图标）
 
-### 改进
-- 优化用户体验流程（导入 → 浏览 → 删除）
-- 统一删除对话框设计（支持单个/批量删除）
-
 ### 技术实现
 
-**后端（Rust）**：
-- 添加 `delete_photo()` 和 `delete_photos()` 数据库函数
-- 实现 `delete_photo_command` 和 `delete_photos_command` 命令
-- 支持物理文件删除（缩略图和预览图）
-- 添加配置管理模块（`config.rs`）
+**架构**：
+- Next.js 15 + App Router
+- Tauri v2 桌面应用框架
+- React Query 数据缓存管理
+- Rust + SQLx SQLite 数据库
 
-**前端（TypeScript + React）**：
+**数据库设计**：
+- `rolls` 表：胶卷元数据
+- `photos` 表：照片信息
+- 外键关联：photos.roll_id → rolls.id
+- 级联删除：删除胶卷时自动删除关联照片
+
+**前端**：
 - 新建 `DeletePhotosDialog.tsx` 组件
 - 更新 `BatchSelectionBar.tsx` 支持删除和中文化
 - 更新 `RollCard.tsx` 支持选择模式
 - 新建 `SettingsDialog.tsx` 组件
 
-### 数据库变更
+**后端**：
+- 添加 `delete_photo()` 和 `delete_photos()` 数据库函数
+- 实现 `delete_photo_command` 和 `delete_photos_command` 命令
+- 支持物理文件删除（缩略图和预览图）
+- 添加配置管理模块（`config.rs`）
+
+**数据库变更**：
 - 新增 `settings` 表（存储配置信息）
 - 迁移文件：`src-tauri/migrations/002_settings.sql`
+
+### 改进
+
+**用户体验流程**：
+- 优化用户体验流程（导入 → 浏览 → 删除）
+- 统一删除对话框设计（支持单个/批量删除）
 
 ---
 
@@ -161,7 +228,7 @@
 ### 新增
 
 **核心功能**：
-- 胶卷导入功能（支持 JPG、PNG、WebP、TIFF 等格式）
+- 胶卷导入功能（支持 JPG、PNG、WebP 等格式）
 - 自动缩略图生成（300px WebP 格式）
 - 自动预览图生成（1920px WebP 格式）
 - 胶卷列表展示（卡片式布局）
@@ -182,8 +249,6 @@
 - 暗色主题界面
 - FilmStripBadge 胶卷型号颜色标识
 - 响应式布局
-- 导入对话框
-- 元数据编辑对话框
 
 ### 技术实现
 
@@ -192,7 +257,6 @@
 - Tauri v2 桌面应用框架
 - React Query 数据缓存管理
 - Rust + SQLx SQLite 数据库
-- TypeScript 前端 + Rust 后端
 
 **数据库设计**：
 - `rolls` 表：胶卷元数据
@@ -205,11 +269,13 @@
 ## 版本说明
 
 ### 版本号规则
-- **主版本号**（Major）：不兼容的 API 变更
-- **次版本号**（Minor）：向下兼容的功能性新增
-- **修订号**（Patch）：向下兼容的问题修正
+
+- **主版本号**：不兼容的 API 变更
+- **次版本号**：向下兼容的功能性新增
+- **修订号**：向下兼容的问题修正
 
 ### 变更类型
+
 - **新增**：新功能
 - **改进**：现有功能的改进
 - **修复**：问题修复

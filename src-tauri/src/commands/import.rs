@@ -88,6 +88,10 @@ pub async fn import_folder(
         shoot_date: shoot_date.clone(),
         lab_info: None,
         notes: options.notes.clone(),
+        city: None,
+        country: None,
+        lat: None,
+        lon: None,
     };
 
     let roll_id = create_roll(&pool, new_roll).await
@@ -161,12 +165,17 @@ pub async fn import_folder(
         // Parse camera string into make and model
         let (make, model) = parse_camera_string(&options.camera);
 
-        // Format user comment with film stock
-        let user_comment = if !options.film_stock.is_empty() {
-            format!("Shot on {}", options.film_stock)
-        } else {
-            String::new()
-        };
+        // Build user comment: "Shot on {film_stock} | {city}, {country} | {notes}"
+        let mut parts = vec![];
+        if !options.film_stock.is_empty() {
+            parts.push(format!("Shot on {}", options.film_stock));
+        }
+        if let Some(ref notes) = options.notes {
+            if !notes.is_empty() {
+                parts.push(notes.clone());
+            }
+        }
+        let user_comment = parts.join(" | ");
 
         // Format date time original from shoot_date (replace - with :)
         let date_time_original = format_exif_date(&shoot_date);
@@ -177,7 +186,6 @@ pub async fn import_folder(
                 let file_path = p.original_path.clone();
                 let make_clone = make.clone();
                 let model_clone = model.clone();
-                let lens_clone = options.lens.clone();
                 let date_clone = date_time_original.clone();
                 let comment_clone = user_comment.clone();
 
@@ -188,7 +196,6 @@ pub async fn import_folder(
                             &file_path.to_string_lossy(),
                             &make_clone,
                             &model_clone,
-                            lens_clone.as_deref(),
                             &date_clone,
                             &comment_clone,
                         ).await

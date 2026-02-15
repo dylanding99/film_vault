@@ -18,7 +18,7 @@ import type {
 } from '@/types/exif';
 
 /**
- * Get all rolls from the database
+ * Get all rolls from database
  */
 export async function getAllRolls(): Promise<Roll[]> {
   return await invoke<Roll[]>('get_all_rolls_command');
@@ -67,7 +67,7 @@ export async function previewImportCount(sourcePath: string): Promise<number> {
 }
 
 /**
- * Set a photo as the roll cover
+ * Set a photo as roll cover
  */
 export async function setPhotoAsCover(rollId: number, photoId: number): Promise<boolean> {
   return await invoke<boolean>('set_photo_as_cover_command', {
@@ -185,7 +185,7 @@ export async function checkExifToolAvailable(): Promise<boolean> {
 
 /**
  * Write roll-level EXIF to all photos in a roll
- * Writes camera, lens, date, and film stock metadata to all photo files
+ * Writes Make, Model, DateTimeOriginal, and UserComment (film stock + location + notes)
  */
 export async function writeRollExif(request: WriteRollExifRequest): Promise<ExifWriteResult> {
   return await invoke<ExifWriteResult>('write_roll_exif_command', { request });
@@ -193,7 +193,10 @@ export async function writeRollExif(request: WriteRollExifRequest): Promise<Exif
 
 /**
  * Write photo-level EXIF to a single photo
- * Writes ISO, aperture, shutter speed, focal length, GPS, etc.
+ * Writes UserComment in format: "Shot on {film_stock} | {city}, {country} | {notes}"
+ * - film_stock from roll
+ * - location: photo location takes priority, falls back to roll location
+ * - notes: user's notes for this photo
  */
 export async function writePhotoExif(request: WritePhotoExifRequest): Promise<boolean> {
   return await invoke<boolean>('write_photo_exif_command', { request });
@@ -217,9 +220,84 @@ export async function clearRollExif(rollId: number): Promise<ExifWriteResult> {
 
 /**
  * Read EXIF from a single photo file
- * Extracts all EXIF metadata from the photo
+ * Extracts all EXIF metadata from photo
  */
 export async function readPhotoExif(photoId: number): Promise<ExifData> {
   return await invoke<ExifData>('read_photo_exif_command', { photoId });
 }
 
+// ==================== Location Functions ====================
+
+/**
+ * Update roll location (with city and country)
+ * @param rollId - Roll ID
+ * @param lat - Latitude (optional)
+ * @param lon - Longitude (optional)
+ * @param city - City name (optional)
+ * @param country - Country name (optional)
+ */
+export async function updateRollLocation(
+  rollId: number,
+  lat?: number,
+  lon?: number,
+  city?: string,
+  country?: string,
+): Promise<boolean> {
+  return await invoke<boolean>('update_roll_location_command', {
+    rollId,
+    lat,
+    lon,
+    city,
+    country,
+  });
+}
+
+/**
+ * Update photo location (with city and country)
+ * @param photoId - Photo ID
+ * @param lat - Latitude (optional)
+ * @param lon - Longitude (optional)
+ * @param city - City name (optional)
+ * @param country - Country name (optional)
+ */
+export async function updatePhotoLocationWithCity(
+  photoId: number,
+  lat?: number,
+  lon?: number,
+  city?: string,
+  country?: string,
+): Promise<boolean> {
+  return await invoke<boolean>('update_photo_location_with_city_command', {
+    photoId,
+    lat,
+    lon,
+    city,
+    country,
+  });
+}
+
+/**
+ * Apply roll location to all photos in the roll
+ * Only updates photos that don't have their own location set
+ * @param rollId - Roll ID
+ * @param lat - Latitude (optional, reads from database if not provided)
+ * @param lon - Longitude (optional, reads from database if not provided)
+ * @param city - City name (optional, reads from database if not provided)
+ * @param country - Country name (optional, reads from database if not provided)
+ * @returns Number of photos updated
+ */
+export async function applyRollLocationToPhotos(
+  rollId: number,
+  lat?: number,
+  lon?: number,
+  city?: string,
+  country?: string,
+): Promise<number> {
+  return await invoke<number>('apply_roll_location_to_photos_command', {
+    rollId,
+    lat,
+    lon,
+    city,
+    country,
+  });
+}

@@ -12,7 +12,14 @@ import { BatchSelectionBar } from '@/components/BatchSelectionBar';
 import { DeleteRollDialog } from '@/components/DeleteRollDialog';
 import { DeletePhotosDialog } from '@/components/DeletePhotosDialog';
 import { EditMetadataForm } from '@/components/EditMetadataForm';
-import { getRollWithPhotos, updateRoll, deleteRoll, deletePhotos } from '@/lib/db';
+import {
+  getRollWithPhotos,
+  updateRoll,
+  deleteRoll,
+  deletePhotos,
+  setPhotoAsCover,
+  togglePhotoFavorite,
+} from '@/lib/db';
 import type { Roll, Photo, UpdateRollRequest, DeleteRollRequest } from '@/types/roll';
 
 export default function RollDetailPage() {
@@ -127,6 +134,10 @@ export default function RollDetailPage() {
       shoot_date: roll.shoot_date,
       lab_info: roll.lab_info,
       notes: roll.notes,
+      city: roll.city,
+      country: roll.country,
+      lat: roll.lat,
+      lon: roll.lon,
     });
   };
 
@@ -175,6 +186,8 @@ export default function RollDetailPage() {
 
   // Handle navigate preview
   const handleNavigatePreview = (direction: 'prev' | 'next') => {
+    if (photos.length === 0) return;
+
     const newIndex = direction === 'next'
       ? (previewIndex + 1) % photos.length
       : (previewIndex - 1 + photos.length) % photos.length;
@@ -186,6 +199,11 @@ export default function RollDetailPage() {
   // Handle select all (only select visible photos)
   const handleSelectAll = () => {
     setSelectedPhotos(new Set(photos.map(p => p.id)));
+  };
+
+  // Handle deselect all
+  const handleDeselectAll = () => {
+    setSelectedPhotos(new Set());
   };
 
   // Handle photo selection
@@ -206,31 +224,26 @@ export default function RollDetailPage() {
   // Handle set as cover
   const handleSetCover = async (rollId: number, photoId: number) => {
     try {
-      const { setPhotoAsCover } = await import('@/lib/db');
       await setPhotoAsCover(rollId, photoId);
       await queryClient.invalidateQueries({ queryKey: ['roll', rollId] });
       await queryClient.invalidateQueries({ queryKey: ['rolls'] });
     } catch (error) {
       console.error('Failed to set cover:', error);
+      alert(`设置封面失败: ${error instanceof Error ? error.message : '未知错误'}`);
     }
   };
 
   // Handle toggle favorite
   const handleToggleFavorite = async (photoId: number) => {
     try {
-      const { togglePhotoFavorite } = await import('@/lib/db');
       await togglePhotoFavorite(photoId);
 
-      // Invalidate and refetch queries
-      await queryClient.invalidateQueries({ queryKey: ['roll', rollId] });
+      // Refetch queries to get updated data
       await queryClient.refetchQueries({ queryKey: ['roll', rollId] });
       await queryClient.invalidateQueries({ queryKey: ['rolls'] });
 
       // Update previewPhoto state if the toggled photo is currently being previewed
       if (previewPhoto && previewPhoto.id === photoId) {
-        // Fetch updated photo data from refetched query
-        await queryClient.refetchQueries({ queryKey: ['roll', rollId] });
-
         // Get the updated data from cache
         const cachedData = queryClient.getQueryData<{ roll: Roll; photos: Photo[] }>(['roll', rollId]);
         if (cachedData) {
@@ -242,6 +255,7 @@ export default function RollDetailPage() {
       }
     } catch (error) {
       console.error('Failed to toggle favorite:', error);
+      alert(`收藏操作失败: ${error instanceof Error ? error.message : '未知错误'}`);
     }
   };
 
@@ -336,6 +350,7 @@ export default function RollDetailPage() {
           selectedCount={selectedPhotos.size}
           totalCount={photos.length}
           onSelectAll={handleSelectAll}
+          onDeselectAll={handleDeselectAll}
           onClearSelection={handleClearSelection}
           onDelete={handleDeletePhotos}
           itemType="photo"
@@ -349,6 +364,8 @@ export default function RollDetailPage() {
           index={previewIndex}
           total={photos.length}
           rollId={roll.id}
+          rollCity={roll.city}
+          rollCountry={roll.country}
           onClose={handleClosePreview}
           onNavigate={handleNavigatePreview}
           onSetCover={handleSetCover}

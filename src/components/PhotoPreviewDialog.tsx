@@ -6,7 +6,7 @@ import {
   DialogContent,
 } from './ui/dialog';
 import { Button } from './ui/button';
-import { ChevronLeft, ChevronRight, X, Heart, Info, Edit, Loader2 } from 'lucide-react';
+import { ChevronLeft, ChevronRight, X, Heart, Info, Edit, Loader2, MapPin } from 'lucide-react';
 import { pathToAssetUrl } from '@/lib/utils';
 import type { Photo } from '@/types/roll';
 import type { ExifData } from '@/types/exif';
@@ -19,6 +19,8 @@ interface PhotoPreviewDialogProps {
   index: number;
   total: number;
   rollId: number;
+  rollCity?: string;
+  rollCountry?: string;
   onClose: () => void;
   onNavigate: (direction: 'prev' | 'next') => void;
   onSetCover: (rollId: number, photoId: number) => Promise<void>;
@@ -31,6 +33,8 @@ export function PhotoPreviewDialog({
   index,
   total,
   rollId,
+  rollCity,
+  rollCountry,
   onClose,
   onNavigate,
   onSetCover,
@@ -48,6 +52,13 @@ export function PhotoPreviewDialog({
   const [isLoadingExif, setIsLoadingExif] = useState(false);
   // Local state to track if current photo is cover (for immediate UI feedback)
   const [isCover, setIsCover] = useState(photo.is_cover);
+
+  // 计算显示的位置（照片优先于胶卷）
+  const displayLocation = photo.city && photo.country
+    ? { city: photo.city, country: photo.country }
+    : rollCity && rollCountry
+    ? { city: rollCity, country: rollCountry }
+    : null;
 
   // Sync isCover state when photo prop changes (e.g., when navigating)
   useEffect(() => {
@@ -199,13 +210,20 @@ export function PhotoPreviewDialog({
 
         {/* Photo Info Footer */}
         <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/80 to-transparent">
-          <div className="flex items-center justify-between">
-            {/* Left: File info */}
+          <div className="flex items-end justify-between gap-4">
+            {/* Left: File info and Location */}
             <div className="text-white">
               <div className="font-semibold truncate max-w-md">{photo.filename}</div>
               <div className="text-sm text-zinc-400">
                 {index + 1} / {total}
               </div>
+              {/* Location Display */}
+              {displayLocation && (
+                <div className="flex items-center gap-1.5 text-xs text-zinc-400 mt-1">
+                  <MapPin className="h-3.5 w-3.5" />
+                  {displayLocation.city}, {displayLocation.country}
+                </div>
+              )}
             </div>
 
             {/* Right: Actions */}

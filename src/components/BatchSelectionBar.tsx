@@ -7,6 +7,7 @@ interface BatchSelectionBarProps {
   selectedCount: number;
   totalCount: number;
   onSelectAll: () => void;
+  onDeselectAll: () => void;
   onClearSelection: () => void;
   onDelete?: () => void;
   itemType?: 'photo' | 'roll';
@@ -16,6 +17,7 @@ export function BatchSelectionBar({
   selectedCount,
   totalCount,
   onSelectAll,
+  onDeselectAll,
   onClearSelection,
   onDelete,
   itemType = 'photo',
@@ -46,7 +48,7 @@ export function BatchSelectionBar({
               </div>
             </div>
 
-            {selectedCount < totalCount && (
+            {selectedCount < totalCount ? (
               <Button
                 onClick={onSelectAll}
                 variant="ghost"
@@ -54,6 +56,16 @@ export function BatchSelectionBar({
                 className="text-zinc-400 hover:text-white"
               >
                 {selectAllText} ({totalCount})
+              </Button>
+            ) : (
+              <Button
+                onClick={onDeselectAll}
+                variant="ghost"
+                size="sm"
+                className="text-zinc-400 hover:text-white"
+                title="取消全选"
+              >
+                取消全选
               </Button>
             )}
           </div>

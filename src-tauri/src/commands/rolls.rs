@@ -10,6 +10,7 @@ use crate::database::{
     get_photos_by_roll, get_photo_by_id, get_roll_cover, set_photo_as_cover,
     update_photo_rating, update_photo_location, delete_photo, delete_photos,
     toggle_photo_favorite, update_photo_favorite, get_favorite_photos_by_roll,
+    update_roll_location, update_photo_location_with_city, apply_roll_location_to_photos,
 };
 use crate::AppState;
 
@@ -23,6 +24,10 @@ pub struct UpdateRollRequest {
     pub shoot_date: String,
     pub lab_info: Option<String>,
     pub notes: Option<String>,
+    pub city: Option<String>,
+    pub country: Option<String>,
+    pub lat: Option<f64>,
+    pub lon: Option<f64>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -129,6 +134,10 @@ pub async fn update_roll_command(
 ) -> Result<bool, String> {
     let pool = get_pool(&state).await?;
 
+    // Debug: Log incoming location data
+    eprintln!("[UpdateRoll] Updating roll {} with location: city={:?}, country={:?}, lat={:?}, lon={:?}",
+        request.id, request.city, request.country, request.lat, request.lon);
+
     let new_roll = NewRoll {
         name: request.name,
         path: String::new(), // Path won't be updated through this command
@@ -138,11 +147,23 @@ pub async fn update_roll_command(
         shoot_date: request.shoot_date,
         lab_info: request.lab_info,
         notes: request.notes,
+        city: request.city,
+        country: request.country,
+        lat: request.lat,
+        lon: request.lon,
     };
 
-    update_roll(&pool, request.id, new_roll)
+    let result = update_roll(&pool, request.id, new_roll)
         .await
-        .map_err(|e| format!("Failed to update roll: {}", e))
+        .map_err(|e| format!("Failed to update roll: {}", e))?;
+
+    // Debug: Verify the update by reading back
+    if let Ok(Some(updated_roll)) = get_roll_by_id(&pool, request.id).await {
+        eprintln!("[UpdateRoll] Verification - saved location: city={:?}, country={:?}, lat={:?}, lon={:?}",
+            updated_roll.city, updated_roll.country, updated_roll.lat, updated_roll.lon);
+    }
+
+    Ok(result)
 }
 
 /// Delete physical files associated with a roll
@@ -432,4 +453,54 @@ pub async fn get_favorite_photos_by_roll_command(
     get_favorite_photos_by_roll(&pool, roll_id)
         .await
         .map_err(|e| format!("Failed to get favorite photos: {}", e))
+}
+
+/// Update roll location
+#[tauri::command]
+pub async fn update_roll_location_command(
+    roll_id: i64,
+    lat: Option<f64>,
+    lon: Option<f64>,
+    city: Option<String>,
+    country: Option<String>,
+    state: State<'_, AppState>,
+) -> Result<bool, String> {
+    let pool = get_pool(&state).await?;
+    update_roll_location(&pool, roll_id, lat, lon, city, country)
+        .await
+        .map_err(|e| format!("Failed to update roll location: {}", e))
+}
+
+/// Update photo location with city and country
+#[tauri::command]
+pub async fn update_photo_location_with_city_command(
+    photo_id: i64,
+    lat: Option<f64>,
+    lon: Option<f64>,
+    city: Option<String>,
+    country: Option<String>,
+    state: State<'_, AppState>,
+) -> Result<bool, String> {
+    let pool = get_pool(&state).await?;
+    update_photo_location_with_city(&pool, photo_id, lat, lon, city, country)
+        .await
+        .map_err(|e| format!("Failed to update photo location: {}", e))
+}
+
+/// Apply roll location to all photos in roll
+/// If location parameters are provided, use them; otherwise read from database
+/// Only updates photos that don't have their own location set
+#[tauri::command]
+pub async fn apply_roll_location_to_photos_command(
+    roll_id: i64,
+    lat: Option<f64>,
+    lon: Option<f64>,
+    city: Option<String>,
+    country: Option<String>,
+    state: State<'_, AppState>,
+) -> Result<usize, String> {
+    let pool = get_pool(&state).await?;
+    apply_roll_location_to_photos(&pool, roll_id, lat, lon, city, country)
+        .await
+        .map_err(|e| format!("Failed to apply roll location to photos: {}", e))
 }

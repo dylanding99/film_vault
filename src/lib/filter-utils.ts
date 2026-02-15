@@ -5,8 +5,8 @@
  * URL parameter sync for shareable filter links
  */
 
-import { Roll } from './roll';
-import type { RollFilters } from './filter';
+import { Roll } from '@/types/roll';
+import type { RollFilters } from '@/types/filter';
 
 /**
  * Filter rolls based on the provided filter criteria

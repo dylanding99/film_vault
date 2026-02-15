@@ -13,7 +13,9 @@ import { Input } from './ui/input';
 import { Select } from './ui/select';
 import { FILM_STOCKS } from '@/types/roll';
 import type { Roll } from '@/types/roll';
-import { writeRollExif } from '@/lib/db';
+import type { Location } from '@/lib/geocoding';
+import { writeRollExif, updateRollLocation, applyRollLocationToPhotos } from '@/lib/db';
+import LocationSearchInput from './LocationSearchInput';
 
 interface EditMetadataFormProps {
   open: boolean;
@@ -58,8 +60,10 @@ export function EditMetadataForm({ open, onOpenChange, roll, onSave }: EditMetad
   const [lens, setLens] = useState('');
   const [shootDate, setShootDate] = useState('');
   const [notes, setNotes] = useState('');
+  const [location, setLocation] = useState<Location | null>(null);
   const [autoWriteExif, setAutoWriteExif] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [isApplyingLocation, setIsApplyingLocation] = useState(false);
   const [exifStatus, setExifStatus] = useState<'idle' | 'writing' | 'success' | 'error'>('idle');
 
   useEffect(() => {
@@ -71,6 +75,19 @@ export function EditMetadataForm({ open, onOpenChange, roll, onSave }: EditMetad
       setShootDate(roll.shoot_date.split('T')[0]);
       setNotes(roll.notes || '');
       setExifStatus('idle');
+
+      // Set location if exists
+      if (roll.city && roll.country) {
+        setLocation({
+          lat: roll.lat,
+          lon: roll.lon,
+          city: roll.city,
+          country: roll.country,
+          displayName: `${roll.city}, ${roll.country}`,
+        });
+      } else {
+        setLocation(null);
+      }
     }
   }, [roll]);
 
@@ -89,6 +106,10 @@ export function EditMetadataForm({ open, onOpenChange, roll, onSave }: EditMetad
         lens: lens || undefined,
         shoot_date: shootDate,
         notes: notes || undefined,
+        city: location?.city,
+        country: location?.country,
+        lat: location?.lat,
+        lon: location?.lon,
       });
 
       // Write EXIF if enabled
@@ -103,7 +124,6 @@ export function EditMetadataForm({ open, onOpenChange, roll, onSave }: EditMetad
           if (result.failed_count > 0) {
             console.warn(`EXIF write completed with ${result.failed_count} failures:`, result.failed_files);
             setExifStatus('error');
-            // Show warning but don't block the save
             alert(`元数据已保存，但有 ${result.failed_count} 个文件写入 EXIF 失败。\n\n可能原因：文件只读、被其他程序占用、或 ExifTool 未安装。`);
           } else {
             setExifStatus('success');
@@ -112,7 +132,6 @@ export function EditMetadataForm({ open, onOpenChange, roll, onSave }: EditMetad
         } catch (error) {
           console.error('EXIF write failed:', error);
           setExifStatus('error');
-          // Show warning but don't block the save
           alert(`元数据已保存到数据库，但写入 EXIF 失败。\n\n错误: ${error}\n\n可能原因：ExifTool 未安装。`);
         }
       }
@@ -131,11 +150,48 @@ export function EditMetadataForm({ open, onOpenChange, roll, onSave }: EditMetad
     }
   };
 
+  const handleApplyToPhotos = async () => {
+    if (!roll || !location) return;
+
+    setIsApplyingLocation(true);
+    try {
+      // Apply location to photos using current state values
+      const count = await applyRollLocationToPhotos(
+        roll.id,
+        location.lat,
+        location.lon,
+        location.city,
+        location.country,
+      );
+      alert(`已将位置应用到 ${count} 张照片`);
+
+      // Also write EXIF to all photos
+      if (autoWriteExif) {
+        try {
+          const result = await writeRollExif({
+            roll_id: roll.id,
+            auto_write: true,
+          });
+          if (result.failed_count > 0) {
+            alert(`位置已应用到 ${count} 张照片，但有 ${result.failed_count} 个文件写入 EXIF 失败。`);
+          }
+        } catch (error) {
+          console.error('EXIF write failed:', error);
+        }
+      }
+    } catch (error) {
+      console.error('Apply location failed:', error);
+      alert(`应用位置失败: ${error}`);
+    } finally {
+      setIsApplyingLocation(false);
+    }
+  };
+
   if (!roll) return null;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px]">
+      <DialogContent className="sm:max-w-[500px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>编辑胶卷元数据</DialogTitle>
           <DialogDescription>
@@ -207,6 +263,38 @@ export function EditMetadataForm({ open, onOpenChange, roll, onSave }: EditMetad
               onChange={(e) => setShootDate(e.target.value)}
             />
           </div>
+
+          {/* Location */}
+          <div className="grid gap-2">
+            <Label htmlFor="edit-location">拍摄地点</Label>
+            <LocationSearchInput
+              city={location?.city}
+              country={location?.country}
+              lat={location?.lat}
+              lon={location?.lon}
+              onSelect={setLocation}
+              placeholder="搜索城市..."
+              disabled={isSaving}
+            />
+          </div>
+
+          {/* Apply to Photos Button */}
+          {location && (
+            <div className="flex items-center gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={handleApplyToPhotos}
+                disabled={isApplyingLocation || isSaving}
+              >
+                {isApplyingLocation ? '应用中...' : '应用到所有照片'}
+              </Button>
+              <p className="text-xs text-zinc-500">
+                将胶卷位置信息应用到没有单独设置位置的照片
+              </p>
+            </div>
+          )}
 
           {/* Notes */}
           <div className="grid gap-2">

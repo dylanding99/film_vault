@@ -10,8 +10,6 @@ import {
 import { Button } from './ui/button';
 import { Label } from './ui/label';
 import { Input } from './ui/input';
-import { Switch } from './ui/switch';
-import { Slider } from './ui/slider';
 import { Settings, HardDrive, CheckCircle, XCircle, Loader2 } from 'lucide-react';
 import * as DialogPlugin from '@tauri-apps/plugin-dialog';
 import { checkExifToolAvailable } from '@/lib/db';
@@ -33,10 +31,6 @@ export function SettingsDialog({
   const [error, setError] = useState<string | null>(null);
   const [exifToolStatus, setExifToolStatus] = useState<'checking' | 'available' | 'unavailable'>('checking');
   const [selectedPath, setSelectedPath] = useState<string>(currentLibraryRoot);
-
-  // EXIF settings
-  const [exifAutoWrite, setExifAutoWrite] = useState<boolean>(true);
-  const [exifConcurrentWrites, setExifConcurrentWrites] = useState<number>(4);
 
   // Check ExifTool availability when dialog opens
   useEffect(() => {
@@ -161,73 +155,6 @@ export function SettingsDialog({
                   照片将存储在：{displayPath}
                 </p>
               )}
-            </div>
-          </div>
-
-          {/* EXIF 设置 */}
-          <div className="space-y-3 border-t border-zinc-800 pt-4">
-            <div className="flex items-center justify-between">
-              <h3 className="text-sm font-semibold text-zinc-300">EXIF 设置</h3>
-              {/* ExifTool 状态 */}
-              <div className="flex items-center gap-2 text-xs">
-                {exifToolStatus === 'checking' && (
-                  <div className="flex items-center gap-1 text-zinc-500">
-                    <Loader2 className="h-3 w-3 animate-spin" />
-                    <span>检查中...</span>
-                  </div>
-                )}
-                {exifToolStatus === 'available' && (
-                  <div className="flex items-center gap-1 text-green-400">
-                    <CheckCircle className="h-3 w-3" />
-                    <span>ExifTool 可用</span>
-                  </div>
-                )}
-                {exifToolStatus === 'unavailable' && (
-                  <div className="flex items-center gap-1 text-red-400">
-                    <XCircle className="h-3 w-3" />
-                    <span>ExifTool 未安装</span>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* 自动写入 EXIF */}
-            <div className="flex items-center justify-between">
-              <div className="space-y-0.5">
-                <Label htmlFor="exif-auto-write" className="text-zinc-400">自动写入 EXIF</Label>
-                <p className="text-xs text-zinc-500">
-                  导入和编辑时自动将元数据写入照片文件
-                </p>
-              </div>
-              <Switch
-                id="exif-auto-write"
-                checked={exifAutoWrite}
-                onCheckedChange={setExifAutoWrite}
-                disabled={exifToolStatus !== 'available'}
-              />
-            </div>
-
-            {/* 并发写入数 */}
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <Label htmlFor="exif-concurrent" className="text-zinc-400">
-                  并发 EXIF 写入数
-                </Label>
-                <span className="text-sm text-zinc-300">{exifConcurrentWrites}</span>
-              </div>
-              <Slider
-                id="exif-concurrent"
-                min={1}
-                max={8}
-                step={1}
-                value={[exifConcurrentWrites]}
-                onValueChange={([value]) => setExifConcurrentWrites(value)}
-                disabled={exifToolStatus !== 'available'}
-                className="py-2"
-              />
-              <p className="text-xs text-zinc-500">
-                同时写入的 EXIF 文件数量 (1-8)。数值越高速度越快，但可能占用更多系统资源。
-              </p>
             </div>
           </div>
 

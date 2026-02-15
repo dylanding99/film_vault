@@ -183,6 +183,10 @@ export default function HomePage() {
       shoot_date: roll.shoot_date,
       lab_info: roll.lab_info,
       notes: roll.notes,
+      city: roll.city,
+      country: roll.country,
+      lat: roll.lat,
+      lon: roll.lon,
     });
   };
 
@@ -244,14 +248,19 @@ export default function HomePage() {
     setSelectedRolls(newSelected);
   };
 
-  // Select all rolls
+  // Select all rolls (only visible/filtered rolls)
   const handleSelectAllRolls = () => {
-    if (rolls.length > 0) {
-      setSelectedRolls(new Set(rolls.map(r => r.id)));
+    if (filteredRolls.length > 0) {
+      setSelectedRolls(new Set(filteredRolls.map(r => r.id)));
     }
   };
 
-  // Clear roll selection
+  // Deselect all rolls
+  const handleDeselectAllRolls = () => {
+    setSelectedRolls(new Set());
+  };
+
+  // Clear roll selection and exit selection mode
   const handleClearRollSelection = () => {
     setSelectedRolls(new Set());
     setSelectionMode(false);
@@ -446,8 +455,9 @@ export default function HomePage() {
       {selectedRolls.size > 0 && (
         <BatchSelectionBar
           selectedCount={selectedRolls.size}
-          totalCount={rolls.length}
+          totalCount={filteredRolls.length}
           onSelectAll={handleSelectAllRolls}
+          onDeselectAll={handleDeselectAllRolls}
           onClearSelection={handleClearRollSelection}
           onDelete={handleDeleteRolls}
           itemType="roll"

@@ -52,6 +52,12 @@ pub struct ExifData {
     pub gps_altitude: Option<f64>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub gps_city: Option<String>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub gps_country: Option<String>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub rating: Option<i32>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -71,13 +77,139 @@ pub struct ExifWriteResult {
 
 /// Check if ExifTool is available
 pub fn check_exiftool_available() -> bool {
-    match Command::new("exiftool")
-        .arg("-ver")
-        .output()
-    {
-        Ok(output) => output.status.success(),
-        Err(_) => false,
+    // IMPORTANT: Check our bundled exiftool FIRST (before system PATH)
+    // In dev mode: target/debug/exiftool.exe (copied from binaries/exiftool by Tauri)
+    // In prod: exiftool.exe (next to our app exe)
+
+    if let Ok(exe_path) = std::env::current_exe() {
+        let exe_dir = match exe_path.parent() {
+            Some(dir) => dir,
+            None => {
+                eprintln!("[EXIF] Cannot get exe directory");
+                return false;
+            }
+        };
+
+        // Try multiple possible locations for exiftool
+        let possible_names = vec![
+            "exiftool.exe",           // Windows: Tauri copies binaries/exiftool here
+            "exiftool",                // Linux/Mac: without .exe extension
+        ];
+
+        for name in possible_names {
+            let full_path = exe_dir.join(name);
+            eprintln!("[EXIF] Checking for ExifTool at: {}", full_path.display());
+            if full_path.exists() && full_path.is_file() {
+                eprintln!("[EXIF] Found bundled ExifTool at: {}", full_path.display());
+
+                // Also ensure perl5 directory structure exists
+                let _ = get_exiftool_files_dir(); // This will create perl5/ if needed
+
+                return true;
+            }
+        }
     }
+
+    // Fallback: check if exiftool is in system PATH
+    eprintln!("[EXIF] Bundled ExifTool not found, checking system PATH");
+    if Command::new("exiftool").arg("-ver").output().is_ok() {
+        eprintln!("[EXIF] Found exiftool in system PATH (may not have proper DLL setup)");
+        return true;
+    }
+
+    eprintln!("[EXIF] No working ExifTool found");
+    false
+}
+
+/// Get a path relative to the executable directory
+fn get_exe_dir_path(relative: &str) -> Option<String> {
+    if let Ok(exe_path) = std::env::current_exe() {
+        let exe_dir = exe_path.parent()?;
+        let full_path = exe_dir.join(relative);
+        eprintln!("[EXIF] get_exe_dir_path: exe={}, dir={}, full={}, exists={}",
+            exe_path.display(),
+            exe_dir.display(),
+            full_path.display(),
+            full_path.exists()
+        );
+        if full_path.exists() {
+            return Some(full_path.to_string_lossy().to_string());
+        }
+    }
+    None
+}
+
+/// Get the exiftool executable path
+fn get_exiftool_path() -> String {
+    // Try to find exiftool in the same directory as our executable
+    if let Ok(exe_path) = std::env::current_exe() {
+        let exe_dir = exe_path.parent();
+
+        if let Some(dir) = exe_dir {
+            // Try multiple possible names
+            let possible_names = vec![
+                "exiftool.exe",   // Windows
+                "exiftool",        // Linux/Mac
+            ];
+
+            for name in possible_names {
+                let full_path = dir.join(name);
+                if full_path.exists() && full_path.is_file() {
+                    eprintln!("[EXIF] Using ExifTool at: {}", full_path.display());
+                    return full_path.to_string_lossy().to_string();
+                }
+            }
+        }
+    }
+
+    // Fallback to "exiftool" and hope it's in PATH
+    eprintln!("[EXIF] WARNING: Using fallback exiftool from PATH");
+    "exiftool".to_string()
+}
+
+/// Get the exiftool_files directory path (where perl DLLs are located)
+fn get_exiftool_files_dir() -> Option<std::path::PathBuf> {
+    // Get the directory where the exiftool executable is located
+    if let Ok(exe_path) = std::env::current_exe() {
+        let exe_dir = exe_path.parent()?;
+
+        // Try multiple possible locations for exiftool_files
+        let possible_paths = vec![
+            exe_dir.join("exiftool_files"),           // Production: .exe dir / exiftool_files
+            exe_dir.join("binaries/exiftool_files"),   // Dev: .exe dir / binaries / exiftool_files
+        ];
+
+        for files_dir in possible_paths {
+            eprintln!("[EXIF] Checking for exiftool_files at: {}", files_dir.display());
+            if files_dir.exists() {
+                eprintln!("[EXIF] Found exiftool_files at: {}", files_dir.display());
+
+                // Create perl5 subdirectory and copy/rename dll if needed
+                // Perl bundled with ExifTool expects dll in exiftool_files/perl5/
+                let perl5_dir = files_dir.join("perl5");
+                let perl_dll = files_dir.join("perl532.dll");
+
+                if perl_dll.exists() && !perl5_dir.exists() {
+                    eprintln!("[EXIF] Creating perl5 directory structure");
+                    if let Err(e) = std::fs::create_dir(&perl5_dir) {
+                        eprintln!("[EXIF] Failed to create perl5 directory: {}", e);
+                    } else {
+                        // Copy dll to perl5 directory
+                        let target_dll = perl5_dir.join("perl532.dll");
+                        if let Err(e) = std::fs::copy(&perl_dll, &target_dll) {
+                            eprintln!("[EXIF] Failed to copy perl dll: {}", e);
+                        } else {
+                            eprintln!("[EXIF] Copied perl532.dll to perl5/");
+                        }
+                    }
+                }
+
+                return Some(files_dir);
+            }
+        }
+    }
+    eprintln!("[EXIF] WARNING: exiftool_files directory not found");
+    None
 }
 
 /// Extract EXIF data from a file using ExifTool
@@ -91,7 +223,8 @@ pub fn extract_exif(file_path: &str) -> Result<ExifData> {
     }
 
     // Call ExifTool with JSON output for structured data
-    let output = Command::new("exiftool")
+    let exiftool_path = get_exiftool_path();
+    let output = Command::new(&exiftool_path)
         .arg("-j")                     // JSON output
         .arg("-coordFormat")           // GPS coordinates format
         .arg("%f")                     // Use decimal format for GPS
@@ -192,6 +325,8 @@ pub fn extract_exif(file_path: &str) -> Result<ExifData> {
         gps_latitude,
         gps_longitude,
         gps_altitude,
+        gps_city: None,
+        gps_country: None,
         rating,
         user_comment,
         description,
@@ -217,51 +352,61 @@ pub fn parse_camera_string(camera: &str) -> (String, String) {
 }
 
 /// Write roll-level EXIF to a single photo file
+///
+/// Simplified version - only writes: Make, Model, DateTimeOriginal, UserComment
+/// UserComment contains: film stock + location + user notes
 pub async fn write_photo_roll_exif(
     file_path: &str,
     make: &str,
     model: &str,
-    lens: Option<&str>,
     date_time_original: &str,
     user_comment: &str,
 ) -> Result<()> {
     eprintln!("[EXIF] Writing roll EXIF to: {}", file_path);
-    eprintln!("[EXIF]   Make: {}, Model: {}, Lens: {:?}", make, model, lens);
-    eprintln!("[EXIF]   Date: {}, Comment: {}", date_time_original, user_comment);
+    eprintln!("[EXIF]   Make: {}, Model: {}", make, model);
+    eprintln!("[EXIF]   Date: {}", date_time_original);
+    eprintln!("[EXIF]   UserComment: {}", user_comment);
 
     if !Path::new(file_path).exists() {
         eprintln!("[EXIF] ERROR: File not found: {}", file_path);
         return Err(anyhow::anyhow!("File not found: {}", file_path));
     }
 
-    let mut cmd = Command::new("exiftool");
+    let exiftool_path = get_exiftool_path();
+    let mut cmd = Command::new(&exiftool_path);
+
+    // Set environment variables for ExifTool/Perl
+    if let Some(files_dir) = get_exiftool_files_dir() {
+        // Add exiftool_files to PATH so perl532.dll can be found
+        eprintln!("[EXIF] Adding to PATH: {}", files_dir.display());
+        cmd.env("PATH", format!("{};{}", files_dir.display(), std::env::var("PATH").unwrap_or_default()));
+
+        // Set PERL5LIB to point to the lib directory
+        let lib_dir = files_dir.join("lib");
+        eprintln!("[EXIF] Setting PERL5LIB to: {}", lib_dir.display());
+        cmd.env("PERL5LIB", &lib_dir);
+    }
 
     // Overwrite original (don't create backup)
     cmd.arg("-overwrite_original");
 
-    // Clear existing maker notes (to avoid conflicts)
-    cmd.arg("-MakerNotes:All=");
-
-    // Write roll-level metadata
+    // Write Make (camera manufacturer)
     if !make.is_empty() {
         cmd.arg(format!("-Make={}", make));
     }
 
+    // Write Model (camera model)
     if !model.is_empty() {
         cmd.arg(format!("-Model={}", model));
     }
 
-    if let Some(lens_value) = lens {
-        if !lens_value.is_empty() {
-            cmd.arg(format!("-LensModel={}", lens_value));
-        }
-    }
-
+    // Write DateTimeOriginal and CreateDate
     if !date_time_original.is_empty() {
         cmd.arg(format!("-DateTimeOriginal={}", date_time_original));
         cmd.arg(format!("-CreateDate={}", date_time_original));
     }
 
+    // Write UserComment (contains film stock + location + notes)
     if !user_comment.is_empty() {
         cmd.arg(format!("-UserComment={}", user_comment));
     }
@@ -291,9 +436,11 @@ pub async fn write_photo_roll_exif(
 }
 
 /// Write photo-level EXIF to a single photo file
+///
+/// Simplified version - only writes UserComment (notes)
 pub async fn write_photo_exif(
     file_path: &str,
-    exif: &ExifData,
+    user_comment: Option<&str>,
 ) -> Result<()> {
     eprintln!("[EXIF] Writing photo EXIF to: {}", file_path);
 
@@ -301,53 +448,29 @@ pub async fn write_photo_exif(
         return Err(anyhow::anyhow!("File not found: {}", file_path));
     }
 
-    let mut cmd = Command::new("exiftool");
+    // If no comment to write, skip
+    if user_comment.is_none() {
+        eprintln!("[EXIF] No user comment to write, skipping");
+        return Ok(());
+    }
+
+    let exiftool_path = get_exiftool_path();
+    let mut cmd = Command::new(&exiftool_path);
     cmd.arg("-overwrite_original");
 
-    // Write ISO
-    if let Some(iso) = exif.iso {
-        cmd.arg(format!("-ISO={}", iso));
+    // Set environment variables for ExifTool/Perl
+    if let Some(files_dir) = get_exiftool_files_dir() {
+        eprintln!("[EXIF] Adding to PATH: {}", files_dir.display());
+        cmd.env("PATH", format!("{};{}", files_dir.display(), std::env::var("PATH").unwrap_or_default()));
+
+        let lib_dir = files_dir.join("lib");
+        eprintln!("[EXIF] Setting PERL5LIB to: {}", lib_dir.display());
+        cmd.env("PERL5LIB", &lib_dir);
     }
 
-    // Write Aperture
-    if let Some(ref aperture) = exif.aperture {
-        cmd.arg(format!("-FNumber={}", aperture));
-    }
-
-    // Write Shutter Speed
-    if let Some(ref shutter_speed) = exif.shutter_speed {
-        cmd.arg(format!("-ExposureTime={}", shutter_speed));
-    }
-
-    // Write Focal Length
-    if let Some(ref focal_length) = exif.focal_length {
-        cmd.arg(format!("-FocalLength={}", focal_length));
-    }
-
-    // Write GPS coordinates
-    if let Some(lat) = exif.gps_latitude {
-        cmd.arg(format!("-GPSLatitude={}", lat));
-    }
-    if let Some(lon) = exif.gps_longitude {
-        cmd.arg(format!("-GPSLongitude={}", lon));
-    }
-    if let Some(alt) = exif.gps_altitude {
-        cmd.arg(format!("-GPSAltitude={}", alt));
-    }
-
-    // Write Rating
-    if let Some(rating) = exif.rating {
-        cmd.arg(format!("-Rating={}", rating));
-    }
-
-    // Write UserComment
-    if let Some(ref user_comment) = exif.user_comment {
-        cmd.arg(format!("-UserComment={}", user_comment));
-    }
-
-    // Write Description
-    if let Some(ref description) = exif.description {
-        cmd.arg(format!("-Description={}", description));
+    // Write UserComment only
+    if let Some(comment) = user_comment {
+        cmd.arg(format!("-UserComment={}", comment));
     }
 
     cmd.arg(file_path);
@@ -372,7 +495,8 @@ pub async fn clear_photo_exif(file_path: &str) -> Result<()> {
         return Err(anyhow::anyhow!("File not found: {}", file_path));
     }
 
-    let output = Command::new("exiftool")
+    let exiftool_path = get_exiftool_path();
+    let output = Command::new(&exiftool_path)
         .arg("-overwrite_original")
         .arg("-all=")
         .arg(file_path)
@@ -404,6 +528,8 @@ impl Default for ExifData {
             gps_latitude: None,
             gps_longitude: None,
             gps_altitude: None,
+            gps_city: None,
+            gps_country: None,
             rating: None,
             user_comment: None,
             description: None,

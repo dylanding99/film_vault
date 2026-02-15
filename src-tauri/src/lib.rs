@@ -122,6 +122,10 @@ pub async fn main() {
             commands::rolls::toggle_photo_favorite_command,
             commands::rolls::update_photo_favorite_command,
             commands::rolls::get_favorite_photos_by_roll_command,
+            // Location commands
+            commands::rolls::update_roll_location_command,
+            commands::rolls::update_photo_location_with_city_command,
+            commands::rolls::apply_roll_location_to_photos_command,
             // EXIF commands
             commands::exif::check_exiftool_available_command,
             commands::exif::write_roll_exif_command,

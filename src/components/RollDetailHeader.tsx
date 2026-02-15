@@ -1,6 +1,6 @@
 'use client';
 
-import { ArrowLeft, Edit, Calendar, Camera, Image as ImageIcon, Trash2 } from 'lucide-react';
+import { ArrowLeft, Edit, Calendar, Camera, Trash2 } from 'lucide-react';
 import { Button } from './ui/button';
 import { FilmStripBadge } from './FilmStripBadge';
 import { formatDate } from '@/lib/utils';

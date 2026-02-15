@@ -2,7 +2,7 @@
  * FilmVault EXIF Commands
  *
  * Tauri commands for EXIF operations using ExifTool
- * Provides complete bidirectional EXIF synchronization
+ * Simplified version: only writes Make, Model, DateTimeOriginal, and UserComment
  */
 
 use tauri::State;
@@ -51,6 +51,38 @@ pub struct WriteRollExifRequest {
     pub auto_write: bool,
 }
 
+/// Build UserComment from roll metadata
+/// Format: "Shot on {film_stock} | {city}, {country} | {notes}"
+fn build_user_comment(
+    film_stock: &str,
+    city: Option<&str>,
+    country: Option<&str>,
+    notes: Option<&str>,
+) -> String {
+    let mut parts = vec![];
+
+    // Add film stock
+    if !film_stock.is_empty() {
+        parts.push(format!("Shot on {}", film_stock));
+    }
+
+    // Add location
+    if let (Some(city), Some(country)) = (city, country) {
+        if !city.is_empty() && !country.is_empty() {
+            parts.push(format!("{}, {}", city, country));
+        }
+    }
+
+    // Add user notes
+    if let Some(notes) = notes {
+        if !notes.is_empty() {
+            parts.push(notes.to_string());
+        }
+    }
+
+    parts.join(" | ")
+}
+
 /// Write roll-level EXIF to all photos in a roll
 #[tauri::command]
 pub async fn write_roll_exif_command(
@@ -66,11 +98,19 @@ pub async fn write_roll_exif_command(
         .map_err(|e| format!("Failed to query roll: {}", e))?
         .ok_or_else(|| "Roll not found".to_string())?;
 
+    // Debug: Log roll metadata
+    eprintln!("[EXIF] Roll metadata: film_stock={}, camera={}, shoot_date={}",
+        roll.film_stock, roll.camera, roll.shoot_date);
+    eprintln!("[EXIF] Roll location: city={:?}, country={:?}, lat={:?}, lon={:?}",
+        roll.city, roll.country, roll.lat, roll.lon);
+    eprintln!("[EXIF] Roll notes: {:?}", roll.notes);
+
     // Get all photos in the roll
     let photos = get_photos_by_roll(&pool, request.roll_id).await
         .map_err(|e| format!("Failed to query photos: {}", e))?;
 
     if photos.is_empty() {
+        eprintln!("[EXIF] No photos found in roll");
         return Ok(ExifWriteResult {
             success_count: 0,
             failed_count: 0,
@@ -78,15 +118,20 @@ pub async fn write_roll_exif_command(
         });
     }
 
+    eprintln!("[EXIF] Found {} photos to process", photos.len());
+
     // Parse camera string into make and model
     let (make, model) = parse_camera_string(&roll.camera);
 
-    // Format user comment with film stock
-    let user_comment = if !roll.film_stock.is_empty() {
-        format!("Shot on {}", roll.film_stock)
-    } else {
-        String::new()
-    };
+    // Build user comment: "Shot on {film_stock} | {city}, {country} | {notes}"
+    let user_comment = build_user_comment(
+        &roll.film_stock,
+        roll.city.as_deref(),
+        roll.country.as_deref(),
+        roll.notes.as_deref(),
+    );
+
+    eprintln!("[EXIF] Built UserComment: '{}'", user_comment);
 
     // Format date time original from shoot_date
     let date_time_original = format_shoot_date_for_exif(&roll.shoot_date);
@@ -97,18 +142,17 @@ pub async fn write_roll_exif_command(
             let file_path = photo.file_path.clone();
             let make_clone = make.clone();
             let model_clone = model.clone();
-            let lens_clone = roll.lens.clone();
             let date_clone = date_time_original.clone();
             let comment_clone = user_comment.clone();
 
             async move {
+                eprintln!("[EXIF] Processing photo: {}", file_path);
                 (
                     file_path.clone(),
                     write_photo_roll_exif(
                         &file_path,
                         &make_clone,
                         &model_clone,
-                        lens_clone.as_deref(),
                         &date_clone,
                         &comment_clone,
                     ).await
@@ -126,8 +170,12 @@ pub async fn write_roll_exif_command(
 
     for (file_path, result) in results {
         match result {
-            Ok(_) => success_count += 1,
+            Ok(_) => {
+                eprintln!("[EXIF] Successfully wrote EXIF to: {}", file_path);
+                success_count += 1;
+            }
             Err(e) => {
+                eprintln!("[EXIF] Failed to write EXIF to {}: {}", file_path, e);
                 failed_count += 1;
                 failed_files.push(format!("{}: {}", file_path, e));
             }
@@ -148,10 +196,14 @@ pub async fn write_roll_exif_command(
 #[derive(Debug, Deserialize)]
 pub struct WritePhotoExifRequest {
     pub photo_id: i64,
-    pub exif_data: ExifData,
+    pub user_comment: Option<String>,
 }
 
-/// Write photo-level EXIF to a single photo
+/// Write photo-level EXIF (UserComment only) to a single photo
+/// Builds complete UserComment: "Shot on {film_stock} | {city}, {country} | {user_notes}"
+/// - film_stock: from roll (required)
+/// - location: photo location takes priority, falls back to roll location
+/// - user_notes: from request parameter (user's notes for this photo)
 #[tauri::command]
 pub async fn write_photo_exif_command(
     request: WritePhotoExifRequest,
@@ -166,16 +218,35 @@ pub async fn write_photo_exif_command(
         .map_err(|e| format!("Failed to query: {}", e))?
         .ok_or_else(|| "Photo not found".to_string())?;
 
+    // Get roll from database to get film_stock and roll-level location
+    let roll = get_roll_by_id(&pool, photo.roll_id).await
+        .map_err(|e| format!("Failed to query roll: {}", e))?
+        .ok_or_else(|| "Roll not found".to_string())?;
+
+    // Build complete UserComment with layered information
+    // Photo location takes priority over roll location
+    let city = photo.city.as_deref().or(roll.city.as_deref());
+    let country = photo.country.as_deref().or(roll.country.as_deref());
+
+    let user_comment = build_user_comment(
+        &roll.film_stock,
+        city,
+        country,
+        request.user_comment.as_deref(),
+    );
+
+    eprintln!("[EXIF] Built UserComment: {}", user_comment);
+
     // Write EXIF to the photo file
-    write_photo_exif(&photo.file_path, &request.exif_data).await
+    write_photo_exif(&photo.file_path, Some(&user_comment)).await
         .map_err(|e| format!("Failed to write EXIF: {}", e))?;
 
-    // Update user-editable metadata in database (description, comment)
+    // Update user-editable metadata in database
     update_photo_metadata(
         &pool,
         request.photo_id,
-        request.exif_data.user_comment,
-        request.exif_data.description,
+        request.user_comment.clone(),
+        None, // description not used in simplified version
     ).await
     .map_err(|e| format!("Failed to update metadata: {}", e))?;
 
@@ -315,6 +386,33 @@ mod tests {
         assert_eq!(
             format_shoot_date_for_exif("2023-12-31"),
             "2023:12:31 12:00:00"
+        );
+    }
+
+    #[test]
+    fn test_build_user_comment() {
+        // Film stock only
+        assert_eq!(
+            build_user_comment("Kodak Portra 400", None, None, None),
+            "Shot on Kodak Portra 400"
+        );
+
+        // Film stock + location
+        assert_eq!(
+            build_user_comment("Kodak Portra 400", Some("Tokyo"), Some("Japan"), None),
+            "Shot on Kodak Portra 400 | Tokyo, Japan"
+        );
+
+        // Film stock + location + notes
+        assert_eq!(
+            build_user_comment("Kodak Portra 400", Some("Tokyo"), Some("Japan"), Some("Sunny day")),
+            "Shot on Kodak Portra 400 | Tokyo, Japan | Sunny day"
+        );
+
+        // Empty film stock
+        assert_eq!(
+            build_user_comment("", Some("Tokyo"), Some("Japan"), Some("Sunny day")),
+            "Tokyo, Japan | Sunny day"
         );
     }
 }

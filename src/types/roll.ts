@@ -8,6 +8,10 @@ export interface Roll {
   shoot_date: string;
   lab_info?: string;
   notes?: string;
+  city?: string;
+  country?: string;
+  lat?: number;
+  lon?: number;
   created_at: string;
   updated_at: string;
 }
@@ -24,6 +28,8 @@ export interface Photo {
   is_favorite: boolean;
   lat?: number;
   lon?: number;
+  city?: string;
+  country?: string;
   exif_synced: boolean;
   created_at: string;
   // EXIF write tracking fields
@@ -72,6 +78,10 @@ export interface UpdateRollRequest {
   shoot_date: string;
   lab_info?: string;
   notes?: string;
+  city?: string;
+  country?: string;
+  lat?: number;
+  lon?: number;
 }
 
 export interface DeleteRollRequest {

@@ -6,7 +6,6 @@
 
 - **Node.js** 18+
 - **Rust 工具链**
-- **Visual Studio Build Tools**（Windows）
 
 ### 安装 Rust
 
@@ -38,22 +37,20 @@ cargo --version
    npm run tauri:dev
    ```
 
-**方法 2: 使用 PowerShell**
+**方法 2: 使用普通 PowerShell**
 
 1. 打开 PowerShell
-2. 设置环境变量：
+2. 设置环境变量（如果 Rust 不在 PATH 中）：
    ```powershell
-   # 设置 VS Build Tools 环境（路径根据实际安装位置调整）
-   & "C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Auxiliary\Build\vcvars64.bat"
-
-   # 添加 Rust 到 PATH
+   # 添加 Rust 到 PATH（当前会话有效）
    $env:PATH += ";$env:USERPROFILE\.cargo\bin"
    ```
 3. 运行项目：
    ```powershell
-   cd D:\project\film_vault
    npm run tauri:dev
    ```
+
+> **注意**: 如果遇到 `link.exe not found` 错误，请使用方法 1（Developer Command Prompt）。
 
 ### macOS / Linux
 
@@ -112,7 +109,12 @@ taskkill /PID <PID> /F
 
 ### Rust 命令找不到
 
-**解决方案**: 将 Rust 添加到系统 PATH：
+**临时解决方案**（当前终端会话有效）：
+```powershell
+$env:PATH += ";$env:USERPROFILE\.cargo\bin"
+```
+
+**永久解决方案**（添加到系统 PATH）：
 ```powershell
 [Environment]::SetEnvironmentVariable(
     "Path",
@@ -120,6 +122,8 @@ taskkill /PID <PID> /F
     "User"
 )
 ```
+
+> 添加后需要重新打开终端
 
 ### 数据库锁定错误
 
