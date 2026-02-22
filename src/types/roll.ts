@@ -95,6 +95,13 @@ export interface DeletePhotosRequest {
   delete_files: boolean;
 }
 
+export interface AddPhotosOptions {
+  roll_id: number;
+  source_path: string;
+  copy_mode: boolean;
+  auto_write_exif?: boolean;
+}
+
 // Film stock color mappings
 export const FILM_STOCKS: Record<string, { color: string; text: string }> = {
   'Kodak Gold 200': { color: 'bg-yellow-500', text: 'GOLD 200' },

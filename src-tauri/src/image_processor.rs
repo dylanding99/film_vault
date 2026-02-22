@@ -291,6 +291,84 @@ pub fn get_file_size_mb(path: &Path) -> Result<f64> {
     Ok(bytes as f64 / (1024.0 * 1024.0))
 }
 
+/// Process multiple images in a directory with progress callback, file renaming, and starting index
+/// This function is used when adding photos to an existing roll
+pub fn process_images_in_directory_with_start_index<F>(
+    source_dir: &Path,
+    roll_dir: &Path,
+    roll_id: i64,
+    start_index: usize,
+    copy_mode: bool,
+    mut progress_callback: F,
+) -> Result<Vec<ProcessedPaths>>
+where
+    F: FnMut(usize, usize, String),
+{
+    let mut results = Vec::new();
+
+    // Supported image extensions
+    let image_extensions = ["jpg", "jpeg", "png", "tif", "tiff", "webp", "bmp"];
+
+    // First, collect all image files
+    let mut image_files: Vec<PathBuf> = Vec::new();
+    for entry in fs::read_dir(source_dir)? {
+        let entry = entry?;
+        let path = entry.path();
+
+        if path.is_file() {
+            if let Some(ext) = path.extension().and_then(|e| e.to_str()) {
+                let ext_lower = ext.to_lowercase();
+                if image_extensions.contains(&ext_lower.as_str()) {
+                    image_files.push(path);
+                }
+            }
+        }
+    }
+
+    let total = image_files.len();
+    eprintln!("[AddPhotos] Found {} images to process, starting from index {}", total, start_index);
+
+    // Generate roll code for filename prefix
+    let roll_code = format!("ROLL_{:08X}", roll_id);
+
+    // Process each image with a new sequential filename starting from start_index
+    for (index, source_path) in image_files.iter().enumerate() {
+        let current = index + 1;
+        let photo_index = start_index + index + 1;
+
+        // Get original filename for display
+        let original_filename = source_path
+            .file_name()
+            .and_then(|n| n.to_str())
+            .unwrap_or("unknown")
+            .to_string();
+
+        // Get file extension
+        let extension = source_path
+            .extension()
+            .and_then(|e| e.to_str())
+            .unwrap_or("jpg");
+
+        // Generate new filename (ROLL_A3F80001_006.jpg for start_index=5)
+        let new_filename = format!("{}_{:03}.{}", roll_code, photo_index, extension);
+
+        eprintln!("[AddPhotos] Processing {}/{}: {} -> {}", current, total, original_filename, new_filename);
+
+        // Send progress update
+        progress_callback(current, total, original_filename.clone());
+
+        // Process the image
+        match process_image_with_copy(source_path, roll_dir, &new_filename, copy_mode) {
+            Ok(processed) => results.push(processed),
+            Err(e) => {
+                eprintln!("Warning: Failed to process {:?}: {}", source_path, e);
+            }
+        }
+    }
+
+    Ok(results)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

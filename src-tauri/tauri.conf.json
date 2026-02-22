@@ -32,6 +32,6 @@
     "targets": "all",
     "icon": [],
     "externalBin": ["binaries/exiftool"],
-    "resources": ["binaries/exiftool_files/**/*"]
+    "resources": ["binaries/exiftool_files/**/*", "presets/**/*"]
   }
 }

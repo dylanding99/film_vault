@@ -9,6 +9,7 @@ import type {
   AppConfig,
   DeleteRollRequest,
   DeletePhotosRequest,
+  AddPhotosOptions,
 } from '@/types/roll';
 import type {
   ExifData,
@@ -16,6 +17,10 @@ import type {
   WriteRollExifRequest,
   WritePhotoExifRequest,
 } from '@/types/exif';
+import type {
+  FilmPreset,
+  NewFilmPreset,
+} from '@/types/film-preset';
 
 /**
  * Get all rolls from database
@@ -64,6 +69,13 @@ export async function importFolder(options: ImportOptions): Promise<ImportResult
  */
 export async function previewImportCount(sourcePath: string): Promise<number> {
   return await invoke<number>('preview_import_count', { sourcePath });
+}
+
+/**
+ * Add photos to an existing roll
+ */
+export async function addPhotosToRoll(options: AddPhotosOptions): Promise<ImportResult> {
+  return await invoke<ImportResult>('add_photos_to_roll', { options });
 }
 
 /**
@@ -300,4 +312,48 @@ export async function applyRollLocationToPhotos(
     city,
     country,
   });
+}
+
+// ==================== Film Presets Functions ====================
+
+/**
+ * Get all film presets
+ */
+export async function getFilmPresets(): Promise<FilmPreset[]> {
+  return await invoke<FilmPreset[]>('get_film_presets_command');
+}
+
+/**
+ * Create a new film preset
+ */
+export async function createFilmPreset(preset: NewFilmPreset): Promise<FilmPreset> {
+  return await invoke<FilmPreset>('create_film_preset_command', { preset });
+}
+
+/**
+ * Update a film preset
+ */
+export async function updateFilmPreset(id: number, preset: NewFilmPreset): Promise<boolean> {
+  return await invoke<boolean>('update_film_preset_command', { id, preset });
+}
+
+/**
+ * Delete a film preset
+ */
+export async function deleteFilmPreset(id: number): Promise<boolean> {
+  return await invoke<boolean>('delete_film_preset_command', { id });
+}
+
+/**
+ * Upload a preset image
+ */
+export async function uploadPresetImage(sourcePath: string): Promise<string> {
+  return await invoke<string>('upload_preset_image_command', { sourcePath });
+}
+
+/**
+ * Read image file and convert to base64 data URL
+ */
+export async function readImageAsBase64(path: string): Promise<string> {
+  return await invoke<string>('read_image_as_base64', { path });
 }

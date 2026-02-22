@@ -1,6 +1,6 @@
 'use client';
 
-import { ArrowLeft, Edit, Calendar, Camera, Trash2 } from 'lucide-react';
+import { ArrowLeft, Edit, Calendar, Camera, Trash2, Plus } from 'lucide-react';
 import { Button } from './ui/button';
 import { FilmStripBadge } from './FilmStripBadge';
 import { formatDate } from '@/lib/utils';
@@ -12,6 +12,7 @@ interface RollDetailHeaderProps {
   onBack: () => void;
   onEdit: (roll: Roll) => void;
   onDelete?: (roll: Roll) => void;
+  onAddPhotos?: () => void;
 }
 
 export function RollDetailHeader({
@@ -20,6 +21,7 @@ export function RollDetailHeader({
   onBack,
   onEdit,
   onDelete,
+  onAddPhotos,
 }: RollDetailHeaderProps) {
   return (
     <header className="border-b border-zinc-800 bg-zinc-950/50 backdrop-blur sticky top-0 z-10">
@@ -47,6 +49,16 @@ export function RollDetailHeader({
           </div>
 
           <div className="flex items-center gap-2">
+            {onAddPhotos && (
+              <Button
+                onClick={onAddPhotos}
+                variant="outline"
+                className="gap-2"
+              >
+                <Plus className="h-4 w-4" />
+                添加照片
+              </Button>
+            )}
             <Button
               onClick={() => onEdit(roll)}
               variant="outline"

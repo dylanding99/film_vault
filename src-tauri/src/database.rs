@@ -72,6 +72,87 @@ pub struct NewPhoto {
     pub preview_path: Option<String>,
 }
 
+#[derive(Debug, Serialize, Deserialize, Clone, sqlx::FromRow)]
+pub struct FilmPreset {
+    pub id: i64,
+    pub name: String,
+    pub format: String,
+    pub brand_color: String,
+    pub image_path: Option<String>,
+    pub brand: String,
+    pub created_at: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct NewFilmPreset {
+    pub name: String,
+    pub format: String,
+    pub brand_color: String,
+    pub image_path: Option<String>,
+    pub brand: String,
+}
+
+/// Get all film presets
+pub async fn get_all_film_presets(pool: &SqlitePool) -> Result<Vec<FilmPreset>> {
+    let presets = sqlx::query_as::<_, FilmPreset>(
+        "SELECT id, name, format, brand_color, image_path, brand, created_at FROM film_presets ORDER BY name"
+    )
+    .fetch_all(pool)
+    .await?;
+
+    Ok(presets)
+}
+
+/// Create a new film preset
+pub async fn create_film_preset(pool: &SqlitePool, preset: NewFilmPreset) -> Result<i64> {
+    let result = sqlx::query(
+        r#"
+        INSERT INTO film_presets (name, format, brand_color, image_path, brand)
+        VALUES (?1, ?2, ?3, ?4, ?5)
+        "#
+    )
+    .bind(&preset.name)
+    .bind(&preset.format)
+    .bind(&preset.brand_color)
+    .bind(&preset.image_path)
+    .bind(&preset.brand)
+    .execute(pool)
+    .await?;
+
+    Ok(result.last_insert_rowid())
+}
+
+/// Update a film preset
+pub async fn update_film_preset(pool: &SqlitePool, id: i64, preset: NewFilmPreset) -> Result<bool> {
+    let result = sqlx::query(
+        r#"
+        UPDATE film_presets
+        SET name = ?1, format = ?2, brand_color = ?3, image_path = ?4, brand = ?5
+        WHERE id = ?6
+        "#
+    )
+    .bind(&preset.name)
+    .bind(&preset.format)
+    .bind(&preset.brand_color)
+    .bind(&preset.image_path)
+    .bind(&preset.brand)
+    .bind(id)
+    .execute(pool)
+    .await?;
+
+    Ok(result.rows_affected() > 0)
+}
+
+/// Delete a film preset
+pub async fn delete_film_preset(pool: &SqlitePool, id: i64) -> Result<bool> {
+    let result = sqlx::query("DELETE FROM film_presets WHERE id = ?1")
+        .bind(id)
+        .execute(pool)
+        .await?;
+
+    Ok(result.rows_affected() > 0)
+}
+
 /// Initialize database connection and run migrations
 pub async fn init_database(db_path: &str) -> Result<SqlitePool> {
     eprintln!("[DB] Connecting to database: {}", db_path);
@@ -229,6 +310,51 @@ pub async fn init_database(db_path: &str) -> Result<SqlitePool> {
                 eprintln!("[DB] Migration 008: location columns already exist, skipping");
             } else {
                 eprintln!("[DB] Migration 008 error: {}", e);
+                return Err(e.into());
+            }
+        }
+    }
+
+    // Migration 009: Create film_presets table
+    let migration_009 = include_str!("../migrations/009_film_presets.sql");
+    match sqlx::query(migration_009).execute(&pool).await {
+        Ok(_) => eprintln!("[DB] Migration 009 executed successfully"),
+        Err(e) => {
+            let error_msg = e.to_string().to_lowercase();
+            if error_msg.contains("already exists") {
+                eprintln!("[DB] Migration 009: film_presets table already exists, skipping");
+            } else {
+                eprintln!("[DB] Migration 009 error: {}", e);
+                return Err(e.into());
+            }
+        }
+    }
+
+    // Migration 010: Add brand field to film_presets table
+    let migration_010 = include_str!("../migrations/010_add_preset_brand.sql");
+    match sqlx::query(migration_010).execute(&pool).await {
+        Ok(_) => eprintln!("[DB] Migration 010 executed successfully"),
+        Err(e) => {
+            let error_msg = e.to_string().to_lowercase();
+            if error_msg.contains("duplicate column") {
+                eprintln!("[DB] Migration 010: brand column already exists, skipping");
+            } else {
+                eprintln!("[DB] Migration 010 error: {}", e);
+                return Err(e.into());
+            }
+        }
+    }
+
+    // Migration 011: Remove iso column from film_presets table
+    let migration_011 = include_str!("../migrations/011_remove_iso.sql");
+    match sqlx::query(migration_011).execute(&pool).await {
+        Ok(_) => eprintln!("[DB] Migration 011 executed successfully"),
+        Err(e) => {
+            let error_msg = e.to_string().to_lowercase();
+            if error_msg.contains("no such column") || error_msg.contains("duplicate") {
+                eprintln!("[DB] Migration 011: iso column already removed or doesn't exist, skipping");
+            } else {
+                eprintln!("[DB] Migration 011 error: {}", e);
                 return Err(e.into());
             }
         }

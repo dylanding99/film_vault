@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { Fragment } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -12,10 +13,15 @@ import { Label } from './ui/label';
 import { Input } from './ui/input';
 import { Select } from './ui/select';
 import { FILM_STOCKS } from '@/types/roll';
+import { FilmPreset } from '@/types/film-preset';
+import { BASIC_FILM_STOCKS } from '@/types/film-preset';
 import type { Roll } from '@/types/roll';
 import type { Location } from '@/lib/geocoding';
-import { writeRollExif, updateRollLocation, applyRollLocationToPhotos } from '@/lib/db';
+import { writeRollExif, updateRollLocation, applyRollLocationToPhotos, getFilmPresets, createFilmPreset } from '@/lib/db';
 import LocationSearchInput from './LocationSearchInput';
+import { FilmPresetGrid } from './FilmPresetGrid';
+import { FilmPresetForm } from './FilmPresetForm';
+import { Plus } from 'lucide-react';
 
 interface EditMetadataFormProps {
   open: boolean;
@@ -65,6 +71,8 @@ export function EditMetadataForm({ open, onOpenChange, roll, onSave }: EditMetad
   const [isSaving, setIsSaving] = useState(false);
   const [isApplyingLocation, setIsApplyingLocation] = useState(false);
   const [exifStatus, setExifStatus] = useState<'idle' | 'writing' | 'success' | 'error'>('idle');
+  const [presets, setPresets] = useState<FilmPreset[]>([]);
+  const [isPresetFormOpen, setIsPresetFormOpen] = useState(false);
 
   useEffect(() => {
     if (roll) {
@@ -90,6 +98,13 @@ export function EditMetadataForm({ open, onOpenChange, roll, onSave }: EditMetad
       }
     }
   }, [roll]);
+
+  // Load presets when dialog opens
+  useEffect(() => {
+    if (open) {
+      getFilmPresets().then(setPresets).catch(console.error);
+    }
+  }, [open]);
 
   const handleSave = async () => {
     if (!roll) return;
@@ -190,7 +205,8 @@ export function EditMetadataForm({ open, onOpenChange, roll, onSave }: EditMetad
   if (!roll) return null;
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Fragment>
+      <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[500px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>编辑胶卷元数据</DialogTitle>
@@ -212,18 +228,41 @@ export function EditMetadataForm({ open, onOpenChange, roll, onSave }: EditMetad
 
           {/* Film Stock */}
           <div className="grid gap-2">
-            <Label htmlFor="edit-film-stock">胶片类型</Label>
-            <Select
-              id="edit-film-stock"
-              value={filmStock}
-              onChange={(e) => setFilmStock(e.target.value)}
-            >
-              {FILM_STOCK_OPTIONS.map((stock) => (
-                <option key={stock} value={stock}>
-                  {stock}
-                </option>
-              ))}
-            </Select>
+            <div className="flex items-center justify-between">
+              <Label htmlFor="edit-film-stock">胶片类型</Label>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => setIsPresetFormOpen(true)}
+                className="text-zinc-400 hover:text-white gap-1 h-6 px-2"
+              >
+                <Plus className="h-3 w-3" />
+                添加新预设
+              </Button>
+            </div>
+            {presets && presets.length > 0 ? (
+              <div className="max-h-48 overflow-y-auto">
+                <FilmPresetGrid
+                  presets={presets}
+                  selectedPresetName={filmStock}
+                  onSelect={(preset) => setFilmStock(preset.name)}
+                  selectable
+                />
+              </div>
+            ) : (
+              <Select
+                id="edit-film-stock"
+                value={filmStock}
+                onChange={(e) => setFilmStock(e.target.value)}
+              >
+                {FILM_STOCK_OPTIONS.map((stock) => (
+                  <option key={stock} value={stock}>
+                    {stock}
+                  </option>
+                ))}
+              </Select>
+            )}
           </div>
 
           {/* Camera */}
@@ -351,5 +390,23 @@ export function EditMetadataForm({ open, onOpenChange, roll, onSave }: EditMetad
         </DialogFooter>
       </DialogContent>
     </Dialog>
+
+    {/* Preset Form Dialog */}
+    <FilmPresetForm
+      open={isPresetFormOpen}
+      onOpenChange={setIsPresetFormOpen}
+      onSave={async (data) => {
+        // Create new preset
+        await createFilmPreset(data as any);
+        // Reload presets
+        const newPresets = await getFilmPresets();
+        setPresets(newPresets);
+        // Select the newly created preset
+        if (!filmStock || !newPresets.find(p => p.name === filmStock)) {
+          setFilmStock(data.name);
+        }
+      }}
+    />
+    </Fragment>
   );
 }

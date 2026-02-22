@@ -1,0 +1,781 @@
+{
+  "presets": [
+    {
+      "name": "CineStill 400D",
+      "brand": "CineStill",
+      "format": "135",
+      "image": "135/CINESTILL_400D.png",
+      "brand_color": "bg-red-500"
+    },
+    {
+      "name": "CineStill 50D",
+      "brand": "CineStill",
+      "format": "135",
+      "image": "135/CINESTILL_50D.png",
+      "brand_color": "bg-red-500"
+    },
+    {
+      "name": "CineStill 800T",
+      "brand": "CineStill",
+      "format": "135",
+      "image": "135/CINESTILL_800T.png",
+      "brand_color": "bg-red-500"
+    },
+    {
+      "name": "CineStill BWXX",
+      "brand": "CineStill",
+      "format": "135",
+      "image": "135/CINESTILL_BWXX.png",
+      "brand_color": "bg-red-500"
+    },
+    {
+      "name": "Foma Pan 100",
+      "brand": "Foma",
+      "format": "135",
+      "image": "135/FOMA_Pan100.png",
+      "brand_color": "bg-blue-500"
+    },
+    {
+      "name": "Foma Pan 200",
+      "brand": "Foma",
+      "format": "135",
+      "image": "135/FOMA_Pan200.png",
+      "brand_color": "bg-blue-500"
+    },
+    {
+      "name": "Foma Pan 400",
+      "brand": "Foma",
+      "format": "135",
+      "image": "135/FOMA_Pan400.png",
+      "brand_color": "bg-blue-500"
+    },
+    {
+      "name": "Foma R100",
+      "brand": "Foma",
+      "format": "135",
+      "image": "135/FOMA_R100.png",
+      "brand_color": "bg-blue-500"
+    },
+    {
+      "name": "Fujifilm C200",
+      "brand": "Fujifilm",
+      "format": "135",
+      "image": "135/FUJI_C200.png",
+      "brand_color": "bg-green-500"
+    },
+    {
+      "name": "Fujifilm C100",
+      "brand": "Fujifilm",
+      "format": "135",
+      "image": "135/FUJI_C100.png",
+      "brand_color": "bg-green-500"
+    },
+    {
+      "name": "Fujifilm Superia 200",
+      "brand": "Fujifilm",
+      "format": "135",
+      "image": "135/FUJI_200.png",
+      "brand_color": "bg-green-500"
+    },
+    {
+      "name": "Fujifilm Superia 400",
+      "brand": "Fujifilm",
+      "format": "135",
+      "image": "135/FUJI_400.png",
+      "brand_color": "bg-green-500"
+    },
+    {
+      "name": "Fujifilm Acros 100 II",
+      "brand": "Fujifilm",
+      "format": "135",
+      "image": "135/FUJI_Acros100ll.png",
+      "brand_color": "bg-green-500"
+    },
+    {
+      "name": "Fujifilm Astia 100F",
+      "brand": "Fujifilm",
+      "format": "135",
+      "image": "135/FUJI_ASTIA100F.png",
+      "brand_color": "bg-green-500"
+    },
+    {
+      "name": "Fujifilm Eterna Vivid 250D",
+      "brand": "Fujifilm",
+      "format": "135",
+      "image": "135/FUJI_ETERNA_Vivid250D-8646.png",
+      "brand_color": "bg-green-500"
+    },
+    {
+      "name": "Fujifilm Eterna Vivid 500",
+      "brand": "Fujifilm",
+      "format": "135",
+      "image": "135/FUJI_ETERNA_Vivid500-8647.png",
+      "brand_color": "bg-green-500"
+    },
+    {
+      "name": "Fujifilm Premium 400",
+      "brand": "Fujifilm",
+      "format": "135",
+      "image": "135/FUJI_Premium400.png",
+      "brand_color": "bg-green-500"
+    },
+    {
+      "name": "Fujifilm Pro 400H",
+      "brand": "Fujifilm",
+      "format": "135",
+      "image": "135/FUJI_Pro400H.png",
+      "brand_color": "bg-green-500"
+    },
+    {
+      "name": "Fujifilm Provia 100F",
+      "brand": "Fujifilm",
+      "format": "135",
+      "image": "135/FUJI_Provia100F.png",
+      "brand_color": "bg-green-500"
+    },
+    {
+      "name": "Fujifilm Reala ACE",
+      "brand": "Fujifilm",
+      "format": "135",
+      "image": "135/FUJI_REALA_ACE.png",
+      "brand_color": "bg-green-500"
+    },
+    {
+      "name": "Fujifilm Sensia III 100",
+      "brand": "Fujifilm",
+      "format": "135",
+      "image": "135/FUJI_Sensia_III100.png",
+      "brand_color": "bg-green-500"
+    },
+    {
+      "name": "Fujifilm Velvia 100",
+      "brand": "Fujifilm",
+      "format": "135",
+      "image": "135/FUJI_Velvia100.png",
+      "brand_color": "bg-green-500"
+    },
+    {
+      "name": "Fujifilm Velvia 50",
+      "brand": "Fujifilm",
+      "format": "135",
+      "image": "135/FUJI_Velvia50.png",
+      "brand_color": "bg-green-500"
+    },
+    {
+      "name": "Fujifilm X-TRA 400",
+      "brand": "Fujifilm",
+      "format": "135",
+      "image": "135/FUJI_X-tra400.png",
+      "brand_color": "bg-green-500"
+    },
+    {
+      "name": "Fujifilm 业务100",
+      "brand": "Fujifilm",
+      "format": "135",
+      "image": "135/FUJI_業务100.png",
+      "brand_color": "bg-green-500"
+    },
+    {
+      "name": "Fujifilm 业务400",
+      "brand": "Fujifilm",
+      "format": "135",
+      "image": "135/FUJI_業务400.png",
+      "brand_color": "bg-green-500"
+    },
+    {
+      "name": "Harman Pan 100",
+      "brand": "Harman",
+      "format": "135",
+      "image": "135/HARMAN_Pan100.png",
+      "brand_color": "bg-gray-500"
+    },
+    {
+      "name": "Harman Pan 400",
+      "brand": "Harman",
+      "format": "135",
+      "image": "135/HARMAN_Pan400.png",
+      "brand_color": "bg-gray-500"
+    },
+    {
+      "name": "Harman Phoenix 200",
+      "brand": "Harman",
+      "format": "135",
+      "image": "135/HARMAN_Phoenix200.png",
+      "brand_color": "bg-gray-500"
+    },
+    {
+      "name": "Harman RED",
+      "brand": "Harman",
+      "format": "135",
+      "image": "135/HARMAN_RED.png",
+      "brand_color": "bg-red-500"
+    },
+    {
+      "name": "Ilford 400 Plus",
+      "brand": "Ilford",
+      "format": "135",
+      "image": "135/ILFORD_400Plus.png",
+      "brand_color": "bg-neutral-500"
+    },
+    {
+      "name": "Ilford Delta 100",
+      "brand": "Ilford",
+      "format": "135",
+      "image": "135/ILFORD_Delta100.png",
+      "brand_color": "bg-neutral-500"
+    },
+    {
+      "name": "Ilford Delta 3200",
+      "brand": "Ilford",
+      "format": "135",
+      "image": "135/ILFORD_Delta3200.png",
+      "brand_color": "bg-neutral-500"
+    },
+    {
+      "name": "Ilford Delta 400",
+      "brand": "Ilford",
+      "format": "135",
+      "image": "135/ILFORD_Delta400.png",
+      "brand_color": "bg-neutral-500"
+    },
+    {
+      "name": "Ilford FP4 125",
+      "brand": "Ilford",
+      "format": "135",
+      "image": "135/ILFORD_FP4(125).png",
+      "brand_color": "bg-neutral-500"
+    },
+    {
+      "name": "Ilford HP5 400",
+      "brand": "Ilford",
+      "format": "135",
+      "image": "135/ILFORD_HP5(400).png",
+      "brand_color": "bg-neutral-500"
+    },
+    {
+      "name": "Ilford Ortho 80",
+      "brand": "Ilford",
+      "format": "135",
+      "image": "135/ILFORD_Ortho(80).png",
+      "brand_color": "bg-neutral-500"
+    },
+    {
+      "name": "Ilford Pan 100",
+      "brand": "Ilford",
+      "format": "135",
+      "image": "135/ILFORD_Pan100.png",
+      "brand_color": "bg-neutral-500"
+    },
+    {
+      "name": "Ilford Pan 400",
+      "brand": "Ilford",
+      "format": "135",
+      "image": "135/ILFORD_Pan400.png",
+      "brand_color": "bg-neutral-500"
+    },
+    {
+      "name": "Ilford PanF 50",
+      "brand": "Ilford",
+      "format": "135",
+      "image": "135/ILFORD_PanF(50).png",
+      "brand_color": "bg-neutral-500"
+    },
+    {
+      "name": "Ilford SFX 200",
+      "brand": "Ilford",
+      "format": "135",
+      "image": "135/ILFORD_SFX200.png",
+      "brand_color": "bg-neutral-500"
+    },
+    {
+      "name": "Ilford XP2 400",
+      "brand": "Ilford",
+      "format": "135",
+      "image": "135/ILFORD_XP2(400).png",
+      "brand_color": "bg-neutral-500"
+    },
+    {
+      "name": "Kodak ColorPlus 200",
+      "brand": "Kodak",
+      "format": "135",
+      "image": "135/KODAK_ColorPlus200.png",
+      "brand_color": "bg-yellow-500"
+    },
+    {
+      "name": "Kodak E100",
+      "brand": "Kodak",
+      "format": "135",
+      "image": "135/KODAK_E100.png",
+      "brand_color": "bg-yellow-500"
+    },
+    {
+      "name": "Kodak E100VS",
+      "brand": "Kodak",
+      "format": "135",
+      "image": "135/KODAK_E100VS.png",
+      "brand_color": "bg-yellow-500"
+    },
+    {
+      "name": "Kodak Ektar 100",
+      "brand": "Kodak",
+      "format": "135",
+      "image": "135/KODAK_Ektar100.png",
+      "brand_color": "bg-yellow-500"
+    },
+    {
+      "name": "Kodak Gold 200",
+      "brand": "Kodak",
+      "format": "135",
+      "image": "135/KODAK_Gold200.png",
+      "brand_color": "bg-yellow-500"
+    },
+    {
+      "name": "Kodak Kodachrome 64",
+      "brand": "Kodak",
+      "format": "135",
+      "image": "135/KODAK_Kodachrome64.png",
+      "brand_color": "bg-yellow-500"
+    },
+    {
+      "name": "Kodak Portra 160",
+      "brand": "Kodak",
+      "format": "135",
+      "image": "135/KODAK_Portra160.png",
+      "brand_color": "bg-yellow-500"
+    },
+    {
+      "name": "Kodak Portra 400",
+      "brand": "Kodak",
+      "format": "135",
+      "image": "135/KODAK_Portra400.png",
+      "brand_color": "bg-yellow-500"
+    },
+    {
+      "name": "Kodak Portra 800",
+      "brand": "Kodak",
+      "format": "135",
+      "image": "135/KODAK_Portra800.png",
+      "brand_color": "bg-yellow-500"
+    },
+    {
+      "name": "Kodak Proimage 100",
+      "brand": "Kodak",
+      "format": "135",
+      "image": "135/KODAK_Prolmage100.png",
+      "brand_color": "bg-yellow-500"
+    },
+    {
+      "name": "Kodak T-Max 100",
+      "brand": "Kodak",
+      "format": "135",
+      "image": "135/KODAK_T-Max100.png",
+      "brand_color": "bg-yellow-500"
+    },
+    {
+      "name": "Kodak T-Max 3200",
+      "brand": "Kodak",
+      "format": "135",
+      "image": "135/KODAK_T-Max3200.png",
+      "brand_color": "bg-yellow-500"
+    },
+    {
+      "name": "Kodak T-Max 400",
+      "brand": "Kodak",
+      "format": "135",
+      "image": "135/KODAK_T-Max400.png",
+      "brand_color": "bg-yellow-500"
+    },
+    {
+      "name": "Kodak Tri-X 400",
+      "brand": "Kodak",
+      "format": "135",
+      "image": "135/KODAK_Tri-X400.png",
+      "brand_color": "bg-yellow-500"
+    },
+    {
+      "name": "Kodak Ultramax 400",
+      "brand": "Kodak",
+      "format": "135",
+      "image": "135/KODAK_Ultramax400.png",
+      "brand_color": "bg-yellow-500"
+    },
+    {
+      "name": "Kodak 2460",
+      "brand": "Kodak",
+      "format": "135",
+      "image": "135/KODAK_2460.png",
+      "brand_color": "bg-yellow-500"
+    },
+    {
+      "name": "Kodak 5203",
+      "brand": "Kodak",
+      "format": "135",
+      "image": "135/KODAK_5203.png",
+      "brand_color": "bg-yellow-500"
+    },
+    {
+      "name": "Kodak 5207",
+      "brand": "Kodak",
+      "format": "135",
+      "image": "135/KODAK_5207.png",
+      "brand_color": "bg-yellow-500"
+    },
+    {
+      "name": "Kodak 5213",
+      "brand": "Kodak",
+      "format": "135",
+      "image": "135/KODAK_5213.png",
+      "brand_color": "bg-yellow-500"
+    },
+    {
+      "name": "Kodak 5219",
+      "brand": "Kodak",
+      "format": "135",
+      "image": "135/KODAK_5219.png",
+      "brand_color": "bg-yellow-500"
+    },
+    {
+      "name": "Kodak 5222",
+      "brand": "Kodak",
+      "format": "135",
+      "image": "135/KODAK_5222.png",
+      "brand_color": "bg-yellow-500"
+    },
+    {
+      "name": "Kodak 5294",
+      "brand": "Kodak",
+      "format": "135",
+      "image": "135/KODAK_5294.png",
+      "brand_color": "bg-yellow-500"
+    },
+    {
+      "name": "CineStill 400D",
+      "brand": "CineStill",
+      "format": "120",
+      "image": "120/CINESTILL_400D.png",
+      "brand_color": "bg-red-500"
+    },
+    {
+      "name": "CineStill 50D",
+      "brand": "CineStill",
+      "format": "120",
+      "image": "120/CINESTILL_50D.png",
+      "brand_color": "bg-red-500"
+    },
+    {
+      "name": "CineStill 800T",
+      "brand": "CineStill",
+      "format": "120",
+      "image": "120/CINESTILL_800T.png",
+      "brand_color": "bg-red-500"
+    },
+    {
+      "name": "CineStill BWXX",
+      "brand": "CineStill",
+      "format": "120",
+      "image": "120/CINESTILL_BWXX.png",
+      "brand_color": "bg-red-500"
+    },
+    {
+      "name": "Foma Pan 100",
+      "brand": "Foma",
+      "format": "120",
+      "image": "120/FOMA_Pan100.png",
+      "brand_color": "bg-blue-500"
+    },
+    {
+      "name": "Foma Pan 200",
+      "brand": "Foma",
+      "format": "120",
+      "image": "120/FOMA_Pan200.png",
+      "brand_color": "bg-blue-500"
+    },
+    {
+      "name": "Foma Pan 400",
+      "brand": "Foma",
+      "format": "120",
+      "image": "120/FOMA_Pan400.png",
+      "brand_color": "bg-blue-500"
+    },
+    {
+      "name": "Foma RetroPan 320",
+      "brand": "Foma",
+      "format": "120",
+      "image": "120/FOMA_RetroPan320.png",
+      "brand_color": "bg-blue-500"
+    },
+    {
+      "name": "Fujifilm Acros 100 II",
+      "brand": "Fujifilm",
+      "format": "120",
+      "image": "120/FUJI_Acros100ll.png",
+      "brand_color": "bg-green-500"
+    },
+    {
+      "name": "Fujifilm Astia 100F",
+      "brand": "Fujifilm",
+      "format": "120",
+      "image": "120/FUJI_ASTIA100F.png",
+      "brand_color": "bg-green-500"
+    },
+    {
+      "name": "Fujifilm Eterna Vivid 250D",
+      "brand": "Fujifilm",
+      "format": "120",
+      "image": "120/FUJI_ETERNA_Vivid250D-8646.png",
+      "brand_color": "bg-green-500"
+    },
+    {
+      "name": "Fujifilm Eterna Vivid 500",
+      "brand": "Fujifilm",
+      "format": "120",
+      "image": "120/FUJI_ETERNA_Vivid500-8647.png",
+      "brand_color": "bg-green-500"
+    },
+    {
+      "name": "Fujifilm Pro 160NS",
+      "brand": "Fujifilm",
+      "format": "120",
+      "image": "120/FUJI_Pro160NS.png",
+      "brand_color": "bg-green-500"
+    },
+    {
+      "name": "Fujifilm Pro 400H",
+      "brand": "Fujifilm",
+      "format": "120",
+      "image": "120/FUJI_Pro400H.png",
+      "brand_color": "bg-green-500"
+    },
+    {
+      "name": "Fujifilm Provia 100F",
+      "brand": "Fujifilm",
+      "format": "120",
+      "image": "120/FUJI_Provia100F.png",
+      "brand_color": "bg-green-500"
+    },
+    {
+      "name": "Fujifilm Reala ACE",
+      "brand": "Fujifilm",
+      "format": "120",
+      "image": "120/FUJI_REALA_ACE.png",
+      "brand_color": "bg-green-500"
+    },
+    {
+      "name": "Fujifilm Velvia 100",
+      "brand": "Fujifilm",
+      "format": "120",
+      "image": "120/FUJI_Velvia100.png",
+      "brand_color": "bg-green-500"
+    },
+    {
+      "name": "Fujifilm Velvia 50",
+      "brand": "Fujifilm",
+      "format": "120",
+      "image": "120/FUJI_Velvia50.png",
+      "brand_color": "bg-green-500"
+    },
+    {
+      "name": "Harman Pan 100",
+      "brand": "Harman",
+      "format": "120",
+      "image": "120/HARMAN_Pan100.png",
+      "brand_color": "bg-gray-500"
+    },
+    {
+      "name": "Harman Pan 400",
+      "brand": "Harman",
+      "format": "120",
+      "image": "120/HARMAN_Pan400.png",
+      "brand_color": "bg-gray-500"
+    },
+    {
+      "name": "Harman Phoenix 200",
+      "brand": "Harman",
+      "format": "120",
+      "image": "120/HARMAN_Phoenix200.png",
+      "brand_color": "bg-gray-500"
+    },
+    {
+      "name": "Ilford Delta 100",
+      "brand": "Ilford",
+      "format": "120",
+      "image": "120/ILFORD_Delta100.png",
+      "brand_color": "bg-neutral-500"
+    },
+    {
+      "name": "Ilford Delta 3200",
+      "brand": "Ilford",
+      "format": "120",
+      "image": "120/ILFORD_Delta3200.png",
+      "brand_color": "bg-neutral-500"
+    },
+    {
+      "name": "Ilford Delta 400",
+      "brand": "Ilford",
+      "format": "120",
+      "image": "120/ILFORD_Delta400.png",
+      "brand_color": "bg-neutral-500"
+    },
+    {
+      "name": "Ilford FP4 100",
+      "brand": "Ilford",
+      "format": "120",
+      "image": "120/ILFORD_FP4(100).png",
+      "brand_color": "bg-neutral-500"
+    },
+    {
+      "name": "Ilford HP5 400",
+      "brand": "Ilford",
+      "format": "120",
+      "image": "120/ILFORD_HP5(400).png",
+      "brand_color": "bg-neutral-500"
+    },
+    {
+      "name": "Ilford Ortho 80",
+      "brand": "Ilford",
+      "format": "120",
+      "image": "120/ILFORD_Ortho(80).png",
+      "brand_color": "bg-neutral-500"
+    },
+    {
+      "name": "Ilford PanF 50",
+      "brand": "Ilford",
+      "format": "120",
+      "image": "120/ILFORD_PanF(50).png",
+      "brand_color": "bg-neutral-500"
+    },
+    {
+      "name": "Ilford SFX 200",
+      "brand": "Ilford",
+      "format": "120",
+      "image": "120/ILFORD_SFX200.png",
+      "brand_color": "bg-neutral-500"
+    },
+    {
+      "name": "Ilford XP2 400",
+      "brand": "Ilford",
+      "format": "120",
+      "image": "120/ILFORD_XP2(400).png",
+      "brand_color": "bg-neutral-500"
+    },
+    {
+      "name": "Kodak 2460",
+      "brand": "Kodak",
+      "format": "120",
+      "image": "120/KODAK_2460.png",
+      "brand_color": "bg-yellow-500"
+    },
+    {
+      "name": "Kodak 5203",
+      "brand": "Kodak",
+      "format": "120",
+      "image": "120/KODAK_5203.png",
+      "brand_color": "bg-yellow-500"
+    },
+    {
+      "name": "Kodak 5207",
+      "brand": "Kodak",
+      "format": "120",
+      "image": "120/KODAK_5207.png",
+      "brand_color": "bg-yellow-500"
+    },
+    {
+      "name": "Kodak 5213",
+      "brand": "Kodak",
+      "format": "120",
+      "image": "120/KODAK_5213.png",
+      "brand_color": "bg-yellow-500"
+    },
+    {
+      "name": "Kodak 5219",
+      "brand": "Kodak",
+      "format": "120",
+      "image": "120/KODAK_5219.png",
+      "brand_color": "bg-yellow-500"
+    },
+    {
+      "name": "Kodak 5222",
+      "brand": "Kodak",
+      "format": "120",
+      "image": "120/KODAK_5222.png",
+      "brand_color": "bg-yellow-500"
+    },
+    {
+      "name": "Kodak E100",
+      "brand": "Kodak",
+      "format": "120",
+      "image": "120/KODAK_E100.png",
+      "brand_color": "bg-yellow-500"
+    },
+    {
+      "name": "Kodak E100VS",
+      "brand": "Kodak",
+      "format": "120",
+      "image": "120/KODAK_E100VS.png",
+      "brand_color": "bg-yellow-500"
+    },
+    {
+      "name": "Kodak Ektar 100",
+      "brand": "Kodak",
+      "format": "120",
+      "image": "120/KODAK_Ektar100.png",
+      "brand_color": "bg-yellow-500"
+    },
+    {
+      "name": "Kodak Gold 200",
+      "brand": "Kodak",
+      "format": "120",
+      "image": "120/KODAK_Gold200.png",
+      "brand_color": "bg-yellow-500"
+    },
+    {
+      "name": "Kodak Kodachrome 64",
+      "brand": "Kodak",
+      "format": "120",
+      "image": "120/KODAK_Kodachrome64.png",
+      "brand_color": "bg-yellow-500"
+    },
+    {
+      "name": "Kodak Portra 160",
+      "brand": "Kodak",
+      "format": "120",
+      "image": "120/KODAK_Portra160.png",
+      "brand_color": "bg-yellow-500"
+    },
+    {
+      "name": "Kodak Portra 400",
+      "brand": "Kodak",
+      "format": "120",
+      "image": "120/KODAK_Portra400.png",
+      "brand_color": "bg-yellow-500"
+    },
+    {
+      "name": "Kodak Portra 800",
+      "brand": "Kodak",
+      "format": "120",
+      "image": "120/KODAK_Portra800.png",
+      "brand_color": "bg-yellow-500"
+    },
+    {
+      "name": "Kodak T-Max 100",
+      "brand": "Kodak",
+      "format": "120",
+      "image": "120/KODAK_T-Max100.png",
+      "brand_color": "bg-yellow-500"
+    },
+    {
+      "name": "Kodak T-Max 400",
+      "brand": "Kodak",
+      "format": "120",
+      "image": "120/KODAK_T-Max400.png",
+      "brand_color": "bg-yellow-500"
+    },
+    {
+      "name": "Kodak Tri-X 400",
+      "brand": "Kodak",
+      "format": "120",
+      "image": "120/KODAK_Tri-X400.png",
+      "brand_color": "bg-yellow-500"
+    }
+  ]
+}

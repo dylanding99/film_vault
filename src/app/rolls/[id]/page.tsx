@@ -12,6 +12,7 @@ import { BatchSelectionBar } from '@/components/BatchSelectionBar';
 import { DeleteRollDialog } from '@/components/DeleteRollDialog';
 import { DeletePhotosDialog } from '@/components/DeletePhotosDialog';
 import { EditMetadataForm } from '@/components/EditMetadataForm';
+import { AddPhotosDialog } from '@/components/AddPhotosDialog';
 import {
   getRollWithPhotos,
   updateRoll,
@@ -19,8 +20,9 @@ import {
   deletePhotos,
   setPhotoAsCover,
   togglePhotoFavorite,
+  addPhotosToRoll,
 } from '@/lib/db';
-import type { Roll, Photo, UpdateRollRequest, DeleteRollRequest } from '@/types/roll';
+import type { Roll, Photo, UpdateRollRequest, DeleteRollRequest, AddPhotosOptions } from '@/types/roll';
 
 export default function RollDetailPage() {
   const params = useParams();
@@ -32,6 +34,7 @@ export default function RollDetailPage() {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isDeletePhotosDialogOpen, setIsDeletePhotosDialogOpen] = useState(false);
+  const [isAddPhotosDialogOpen, setIsAddPhotosDialogOpen] = useState(false);
   const [selectedRoll, setSelectedRoll] = useState<Roll | null>(null);
   const [selectedPhotosForDelete, setSelectedPhotosForDelete] = useState<Photo[]>([]);
 
@@ -112,6 +115,20 @@ export default function RollDetailPage() {
     },
   });
 
+  // Add photos mutation
+  const addPhotosMutation = useMutation({
+    mutationFn: (options: AddPhotosOptions) => addPhotosToRoll(options),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['roll', rollId] });
+      await queryClient.invalidateQueries({ queryKey: ['rolls'] });
+      setIsAddPhotosDialogOpen(false);
+    },
+    onError: (error: Error) => {
+      console.error('Failed to add photos:', error);
+      alert(`添加照片失败: ${error.message}`);
+    },
+  });
+
   // Handle back navigation
   const handleBack = () => {
     router.back();
@@ -162,6 +179,16 @@ export default function RollDetailPage() {
     const selectedPhotoObjects = photos.filter(p => selectedPhotos.has(p.id));
     setSelectedPhotosForDelete(selectedPhotoObjects);
     setIsDeletePhotosDialogOpen(true);
+  };
+
+  // Handle add photos
+  const handleAddPhotos = async (options: AddPhotosOptions) => {
+    await addPhotosMutation.mutateAsync(options);
+  };
+
+  const handleOpenAddPhotosDialog = () => {
+    if (!roll) return;
+    setIsAddPhotosDialogOpen(true);
   };
 
   const handleConfirmDeletePhotos = async () => {
@@ -299,6 +326,7 @@ export default function RollDetailPage() {
         onBack={handleBack}
         onEdit={handleEdit}
         onDelete={handleDelete}
+        onAddPhotos={handleOpenAddPhotosDialog}
       />
 
       {/* Filter Bar */}
@@ -403,6 +431,16 @@ export default function RollDetailPage() {
         onDelete={handleConfirmDeletePhotos}
         isDeleting={deletePhotosMutation.isPending}
       />
+
+      {/* Add Photos Dialog */}
+      {roll && (
+        <AddPhotosDialog
+          open={isAddPhotosDialogOpen}
+          onOpenChange={setIsAddPhotosDialogOpen}
+          onAddPhotos={handleAddPhotos}
+          roll={roll}
+        />
+      )}
     </div>
   );
 }

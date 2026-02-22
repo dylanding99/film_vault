@@ -6,6 +6,7 @@ mod database;
 mod exif_tool;
 mod image_processor;
 mod commands;
+mod default_presets;
 
 use config::init_default_config;
 use database::init_database;
@@ -81,6 +82,11 @@ pub async fn main() {
                             eprintln!("[FilmVault] Failed to initialize default config: {}", e);
                         }
 
+                        // Initialize default film presets
+                        if let Err(e) = default_presets::initialize_default_presets(&pool).await {
+                            eprintln!("[FilmVault] Failed to initialize default presets: {}", e);
+                        }
+
                         let state = handle.state::<AppState>();
                         let mut db_pool = state.db_pool.lock().await;
                         *db_pool = Some(pool);
@@ -105,6 +111,7 @@ pub async fn main() {
             // Import commands
             commands::import::import_folder,
             commands::import::preview_import_count,
+            commands::import::add_photos_to_roll,
             // Roll commands
             commands::rolls::get_all_rolls_command,
             commands::rolls::get_roll_by_id_command,
@@ -133,6 +140,12 @@ pub async fn main() {
             commands::exif::clear_photo_exif_command,
             commands::exif::clear_roll_exif_command,
             commands::exif::read_photo_exif_command,
+            // Film Preset commands
+            commands::film_presets::get_film_presets_command,
+            commands::film_presets::create_film_preset_command,
+            commands::film_presets::update_film_preset_command,
+            commands::film_presets::delete_film_preset_command,
+            commands::film_presets::upload_preset_image_command,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useSearchParams } from 'next/navigation';
-import { Plus, Settings, CheckSquare } from 'lucide-react';
+import { Plus, Settings, CheckSquare, Film } from 'lucide-react';
 import { RollCard } from '@/components/RollCard';
 import { RollFilters } from '@/components/RollFilters';
 import { ImportDialog } from '@/components/ImportDialog';
@@ -12,6 +12,7 @@ import { SettingsDialog } from '@/components/SettingsDialog';
 import { BatchSelectionBar } from '@/components/BatchSelectionBar';
 import { DeleteRollDialog } from '@/components/DeleteRollDialog';
 import { Button } from '@/components/ui/button';
+import Link from 'next/link';
 import {
   getAllRolls,
   importFolder,
@@ -325,6 +326,15 @@ export default function HomePage() {
           </div>
 
           <div className="flex items-center gap-2">
+            <Link href="/presets">
+              <Button
+                variant="outline"
+                size="icon"
+                title="胶片预设"
+              >
+                <Film className="h-5 w-5" />
+              </Button>
+            </Link>
             <Button
               variant="outline"
               size="icon"

@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { Fragment } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -13,9 +14,13 @@ import { Input } from './ui/input';
 import { Select } from './ui/select';
 import * as DialogPlugin from '@tauri-apps/plugin-dialog';
 import { listen } from '@tauri-apps/api/event';
-import { FILM_STOCKS } from '@/types/roll';
-import { ImportOptions } from '@/types/roll';
-import { previewImportCount } from '@/lib/db';
+import { FILM_STOCKS, ImportOptions } from '@/types/roll';
+import { FilmPreset } from '@/types/film-preset';
+import { BASIC_FILM_STOCKS } from '@/types/film-preset';
+import { previewImportCount, getFilmPresets, createFilmPreset } from '@/lib/db';
+import { FilmPresetGrid } from './FilmPresetGrid';
+import { FilmPresetForm } from './FilmPresetForm';
+import { Plus } from 'lucide-react';
 
 interface ImportDialogProps {
   open: boolean;
@@ -23,8 +28,6 @@ interface ImportDialogProps {
   onImport: (options: ImportOptions) => Promise<void>;
   libraryRoot: string;
 }
-
-const FILM_STOCK_OPTIONS = Object.keys(FILM_STOCKS).filter(stock => stock !== 'Unknown');
 
 const CAMERAS = [
   'Canon AE-1',
@@ -65,6 +68,8 @@ export function ImportDialog({ open, onOpenChange, onImport, libraryRoot }: Impo
   const [autoWriteExif, setAutoWriteExif] = useState(true); // Auto write EXIF on import
   const [isImporting, setIsImporting] = useState(false);
   const [previewCount, setPreviewCount] = useState<number | null>(null);
+  const [presets, setPresets] = useState<FilmPreset[]>([]);
+  const [isPresetFormOpen, setIsPresetFormOpen] = useState(false);
 
   // Import progress state
   const [importProgress, setImportProgress] = useState({
@@ -92,6 +97,13 @@ export function ImportDialog({ open, onOpenChange, onImport, libraryRoot }: Impo
       unlistenProgress.then((fn) => fn());
     };
   }, []);
+
+  // Load presets when dialog opens
+  useEffect(() => {
+    if (open) {
+      getFilmPresets().then(setPresets).catch(console.error);
+    }
+  }, [open]);
 
   const handleSelectFolder = async () => {
     try {
@@ -163,7 +175,8 @@ export function ImportDialog({ open, onOpenChange, onImport, libraryRoot }: Impo
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Fragment>
+      <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[600px]">
         <DialogHeader>
           <DialogTitle>导入胶卷</DialogTitle>
@@ -193,18 +206,41 @@ export function ImportDialog({ open, onOpenChange, onImport, libraryRoot }: Impo
 
           {/* Film Stock */}
           <div className="grid gap-2">
-            <Label htmlFor="film-stock">胶片类型</Label>
-            <Select
-              id="film-stock"
-              value={filmStock}
-              onChange={(e) => setFilmStock(e.target.value)}
-            >
-              {FILM_STOCK_OPTIONS.map((stock) => (
-                <option key={stock} value={stock}>
-                  {stock}
-                </option>
-              ))}
-            </Select>
+            <div className="flex items-center justify-between">
+              <Label htmlFor="film-stock">胶片类型</Label>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => setIsPresetFormOpen(true)}
+                className="text-zinc-400 hover:text-white gap-1 h-6 px-2"
+              >
+                <Plus className="h-3 w-3" />
+                添加新预设
+              </Button>
+            </div>
+            {presets && presets.length > 0 ? (
+              <div className="max-h-48 overflow-y-auto">
+                <FilmPresetGrid
+                  presets={presets}
+                  selectedPresetName={filmStock}
+                  onSelect={(preset) => setFilmStock(preset.name)}
+                  selectable
+                />
+              </div>
+            ) : (
+              <Select
+                id="film-stock"
+                value={filmStock}
+                onChange={(e) => setFilmStock(e.target.value)}
+              >
+                {BASIC_FILM_STOCKS.map((stock) => (
+                  <option key={stock} value={stock}>
+                    {stock}
+                  </option>
+                ))}
+              </Select>
+            )}
           </div>
 
           {/* Camera */}
@@ -346,5 +382,23 @@ export function ImportDialog({ open, onOpenChange, onImport, libraryRoot }: Impo
         </DialogFooter>
       </DialogContent>
     </Dialog>
+
+    {/* Preset Form Dialog */}
+    <FilmPresetForm
+      open={isPresetFormOpen}
+      onOpenChange={setIsPresetFormOpen}
+      onSave={async (data) => {
+        // Create new preset
+        await createFilmPreset(data as any);
+        // Reload presets
+        const newPresets = await getFilmPresets();
+        setPresets(newPresets);
+        // Select the newly created preset
+        if (!filmStock || !newPresets.find(p => p.name === filmStock)) {
+          setFilmStock(data.name);
+        }
+      }}
+    />
+    </Fragment>
   );
 }

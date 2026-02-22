@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use walkdir::WalkDir;
 use futures::stream::{self, StreamExt};
 
-use crate::database::{NewRoll, NewPhoto, create_roll, create_photos};
+use crate::database::{NewRoll, NewPhoto, create_roll, create_photos, get_roll_by_id, get_photos_by_roll};
 use crate::image_processor::process_images_in_directory_with_progress;
 use crate::exif_tool::{write_photo_roll_exif, parse_camera_string};
 use crate::AppState;
@@ -280,6 +280,178 @@ pub async fn preview_import_count(source_path: String) -> Result<usize, String> 
     }
 
     Ok(count)
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct AddPhotosOptions {
+    pub roll_id: i64,
+    pub source_path: String,
+    pub copy_mode: bool,
+    pub auto_write_exif: Option<bool>,
+}
+
+/// Add photos to an existing roll
+#[tauri::command]
+pub async fn add_photos_to_roll(
+    options: AddPhotosOptions,
+    state: State<'_, AppState>,
+    app: AppHandle,
+) -> Result<ImportResult, String> {
+    eprintln!("[AddPhotos] add_photos_to_roll called, waiting for database...");
+
+    // Wait for database to be initialized (up to 30 seconds)
+    let mut attempts = 0;
+    let max_attempts = 300; // 30 seconds (300 * 100ms)
+    let pool = loop {
+        let db_guard = state.db_pool.lock().await;
+        if let Some(pool) = db_guard.as_ref() {
+            eprintln!("[AddPhotos] Database initialized after {} attempts", attempts);
+            break pool.clone();
+        }
+
+        attempts += 1;
+        if attempts >= max_attempts {
+            drop(db_guard);
+            eprintln!("[AddPhotos] Database initialization timeout after {} attempts", attempts);
+            return Err("Database not initialized. Please check the terminal logs for errors.".to_string());
+        }
+
+        drop(db_guard);
+        tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
+    };
+
+    // Validate source path exists
+    let source_path = Path::new(&options.source_path);
+    if !source_path.exists() {
+        return Err("Source path does not exist".to_string());
+    }
+
+    // Get existing roll information
+    let roll = get_roll_by_id(&pool, options.roll_id).await
+        .map_err(|e| format!("Failed to get roll: {}", e))?
+        .ok_or_else(|| format!("Roll with ID {} not found", options.roll_id))?;
+
+    // Validate roll directory exists
+    let roll_dir = Path::new(&roll.path);
+    if !roll_dir.exists() {
+        return Err(format!("Roll directory does not exist: {}. Please edit the roll or recreate it.", roll.path));
+    }
+
+    // Get existing photo count to calculate start index
+    let existing_photos = get_photos_by_roll(&pool, options.roll_id).await
+        .map_err(|e| format!("Failed to get existing photos: {}", e))?;
+    let start_index = existing_photos.len();
+
+    eprintln!("[AddPhotos] Adding photos to roll {} ({}), existing photos: {}, start index: {}",
+        roll.id, roll.name, start_index, start_index);
+
+    // Process images with progress callback
+    let app_handle = app.clone();
+    let processed_images = crate::image_processor::process_images_in_directory_with_start_index(
+        source_path,
+        roll_dir,
+        options.roll_id,
+        start_index,
+        options.copy_mode,
+        move |current, total, filename| {
+            // Send progress event to frontend
+            let _ = app_handle.emit("import-progress", serde_json::json!({
+                "current": current,
+                "total": total,
+                "filename": filename,
+                "rollId": options.roll_id,
+            }));
+        }
+    ).map_err(|e| format!("Failed to process images: {}", e))?;
+
+    if processed_images.is_empty() {
+        return Err("No images found in source directory".to_string());
+    }
+
+    eprintln!("[AddPhotos] Processed {} images", processed_images.len());
+
+    // Create photo records in database
+    let photos_count = processed_images.len();
+    let new_photos: Vec<NewPhoto> = processed_images
+        .iter()
+        .map(|p| NewPhoto {
+            roll_id: options.roll_id,
+            filename: p.filename.clone(),
+            file_path: p.original_path.to_string_lossy().to_string(),
+            thumbnail_path: Some(p.thumbnail_path.to_string_lossy().to_string()),
+            preview_path: Some(p.preview_path.to_string_lossy().to_string()),
+        })
+        .collect();
+
+    create_photos(&pool, new_photos).await
+        .map_err(|e| format!("Failed to create photos in database: {}", e))?;
+
+    // Write EXIF if enabled
+    if options.auto_write_exif.unwrap_or(false) {
+        eprintln!("[AddPhotos] Auto-writing EXIF to {} photos", photos_count);
+
+        // Parse camera string into make and model
+        let (make, model) = parse_camera_string(&roll.camera);
+
+        // Build user comment: "Shot on {film_stock} | {city}, {country} | {notes}"
+        let mut parts = vec![];
+        if !roll.film_stock.is_empty() {
+            parts.push(format!("Shot on {}", roll.film_stock));
+        }
+        if let Some(ref notes) = roll.notes {
+            if !notes.is_empty() {
+                parts.push(notes.clone());
+            }
+        }
+        let user_comment = parts.join(" | ");
+
+        // Format date time original from shoot_date
+        let date_time_original = format_exif_date(&roll.shoot_date);
+
+        // Write EXIF to all photos with concurrency control
+        let _results = stream::iter(processed_images)
+            .map(|p| {
+                let file_path = p.original_path.clone();
+                let make_clone = make.clone();
+                let model_clone = model.clone();
+                let date_clone = date_time_original.clone();
+                let comment_clone = user_comment.clone();
+
+                async move {
+                    (
+                        file_path.clone(),
+                        write_photo_roll_exif(
+                            &file_path.to_string_lossy(),
+                            &make_clone,
+                            &model_clone,
+                            &date_clone,
+                            &comment_clone,
+                        ).await
+                    )
+                }
+            })
+            .buffer_unordered(4) // Limit concurrency to 4
+            .collect::<Vec<_>>()
+            .await;
+
+        // Note: We don't check results here to avoid blocking import on EXIF write failures
+    }
+
+    // Send completion event
+    let _ = app.emit("import-complete", serde_json::json!({
+        "rollId": options.roll_id,
+        "count": photos_count,
+        "path": roll.path,
+    }));
+
+    Ok(ImportResult {
+        roll_id: options.roll_id,
+        photos_count,
+        message: format!(
+            "成功添加 {} 张照片到胶卷",
+            photos_count
+        ),
+    })
 }
 
 #[cfg(test)]
