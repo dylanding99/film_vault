@@ -48,6 +48,12 @@ export default function RollDetailPage() {
   // Filter state
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
 
+  // Fetch all film presets
+  const { data: filmPresets = [] } = useQuery({
+    queryKey: ['film-presets'],
+    queryFn: () => import('@/lib/db').then(db => db.getFilmPresets()),
+  });
+
   // Fetch roll data with photos
   const { data: rollData, isLoading, error } = useQuery({
     queryKey: ['roll', rollId],
@@ -56,6 +62,9 @@ export default function RollDetailPage() {
 
   const roll = rollData?.roll;
   const allPhotos = rollData?.photos || [];
+
+  // Find matching preset for this roll
+  const preset = roll ? filmPresets.find(p => p.name === roll.film_stock) : undefined;
 
   // Filter photos based on favorite status
   const photos = showFavoritesOnly
@@ -296,8 +305,13 @@ export default function RollDetailPage() {
   // Loading state
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="text-zinc-500">加载中...</div>
+      <div className="min-h-screen bg-deep flex flex-col items-center justify-center gap-6">
+        <div className="logo-mark animate-pulse w-12 h-12" />
+        <div className="flex items-center gap-3">
+          <div className="w-2 h-2 rounded-full bg-color-brand animate-bounce [animation-delay:-0.3s]" />
+          <div className="w-2 h-2 rounded-full bg-color-brand animate-bounce [animation-delay:-0.15s]" />
+          <div className="w-2 h-2 rounded-full bg-color-brand animate-bounce" />
+        </div>
       </div>
     );
   }
@@ -305,12 +319,21 @@ export default function RollDetailPage() {
   // Error state
   if (error || !roll) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="text-center space-y-4">
-          <div className="text-zinc-500">未找到胶卷</div>
-          <Button onClick={handleBack} variant="outline">
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            返回首页
+      <div className="min-h-screen bg-deep flex items-center justify-center p-8">
+        <div className="max-w-md w-full text-center space-y-8 animate-fade-in-up">
+          <div className="relative inline-block">
+            <div className="absolute inset-0 bg-accent-rose blur-2xl opacity-20" />
+            <div className="relative w-24 h-24 flex items-center justify-center rounded-3xl bg-surface border border-accent-rose/20 mx-auto">
+              <Trash2 className="w-12 h-12 text-accent-rose" />
+            </div>
+          </div>
+          <div>
+            <h1 className="font-display text-3xl font-medium text-primary mb-3 tracking-tight">未找到胶卷</h1>
+            <p className="text-secondary text-body leading-relaxed">该胶卷可能已被移动或删除，无法获取其详细信息。</p>
+          </div>
+          <Button onClick={handleBack} className="btn-secondary btn-lg w-full gap-3">
+            <ArrowLeft className="h-4 w-4" />
+            <span>返回档案库</span>
           </Button>
         </div>
       </div>
@@ -318,59 +341,89 @@ export default function RollDetailPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-deep flex flex-col relative overflow-x-hidden">
+      {/* Cinematic Background Glow - Matches preset brand color */}
+      {preset && (
+        <div 
+          className="fixed top-0 left-1/2 -translate-x-1/2 w-full max-w-4xl h-[500px] opacity-20 pointer-events-none blur-[120px] z-0 transition-all duration-1000 animate-pulse"
+          style={{
+            background: `radial-gradient(circle, ${preset.brand_color.replace('bg-', 'var(--') || 'hsl(var(--color-brand))'} 0%, transparent 70%)`,
+          }}
+        />
+      )}
+
       {/* Header */}
       <RollDetailHeader
         roll={roll}
         photoCount={allPhotos.length}
+        preset={preset}
         onBack={handleBack}
         onEdit={handleEdit}
         onDelete={handleDelete}
         onAddPhotos={handleOpenAddPhotosDialog}
       />
+      
+      <div className="flex-1 pt-32 pb-32 relative z-10">
+        {/* Filter Bar - Editorial Style */}
+        {allPhotos.length > 0 && (
+          <div className="container mx-auto px-6 mb-10 animate-fade-in">
+            <div className="flex items-center justify-between py-4 border-y border-white/5">
+              <div className="flex items-center gap-6">
+                <button 
+                  onClick={() => setShowFavoritesOnly(false)}
+                  className={`text-xs font-mono uppercase tracking-[0.2em] transition-all ${!showFavoritesOnly ? 'text-primary' : 'text-tertiary hover:text-secondary'}`}
+                >
+                  全部存档 {!showFavoritesOnly && <span className="ml-1 opacity-50">({allPhotos.length})</span>}
+                </button>
+                <div className="w-1 h-1 rounded-full bg-white/20" />
+                <button 
+                  onClick={() => setShowFavoritesOnly(true)}
+                  className={`text-xs font-mono uppercase tracking-[0.2em] transition-all ${showFavoritesOnly ? 'text-color-brand' : 'text-tertiary hover:text-secondary'}`}
+                >
+                  收藏馆 {showFavoritesOnly && <span className="ml-1 opacity-50">({photos.length})</span>}
+                </button>
+              </div>
 
-      {/* Filter Bar */}
-      {allPhotos.length > 0 && (
-        <div className="container mx-auto px-6 py-4 border-b border-zinc-800">
-          <label className="flex items-center gap-2 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={showFavoritesOnly}
-              onChange={(e) => setShowFavoritesOnly(e.target.checked)}
-              className="w-4 h-4 rounded border-zinc-600 bg-zinc-800 text-red-500 focus:ring-red-500 focus:ring-offset-0"
-            />
-            <span className="text-sm text-zinc-300">
-              只显示收藏 {showFavoritesOnly && `(${photos.length}/${allPhotos.length})`}
-            </span>
-          </label>
-        </div>
-      )}
-
-      {/* Main Content */}
-      <main className="container mx-auto px-6 py-8">
-        {photos.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-[60vh] text-center">
-            <div className="text-8xl mb-6">📷</div>
-            <h2 className="text-2xl font-semibold text-white mb-2">
-              {showFavoritesOnly ? '没有收藏照片' : '还没有照片'}
-            </h2>
-            <p className="text-zinc-500">
-              {showFavoritesOnly
-                ? '这个胶卷还没有收藏的照片。取消筛选以查看所有照片。'
-                : '这个胶卷还没有照片。'
-              }
-            </p>
+              <div className="hidden sm:block text-[10px] font-mono text-tertiary uppercase tracking-widest opacity-50">
+                Index: 001 — {String(allPhotos.length).padStart(3, '0')}
+              </div>
+            </div>
           </div>
-        ) : (
-          <PhotoGrid
-            photos={photos}
-            selectedPhotos={selectedPhotos}
-            onPhotoClick={handlePhotoClick}
-            onToggleSelection={handleToggleSelection}
-            onToggleFavorite={handleToggleFavorite}
-          />
         )}
-      </main>
+
+        {/* Main Content */}
+        <main className="container mx-auto px-6">
+          {photos.length === 0 ? (
+            <div className="py-12">
+              <EmptyState
+                type={showFavoritesOnly ? 'no-results' : 'no-rolls'}
+                message={showFavoritesOnly ? '档案馆中没有收藏' : '此卷尚无影像'}
+                submessage={showFavoritesOnly 
+                  ? '您还没有为这个胶卷中的照片标记过收藏。' 
+                  : '此胶卷尚未导入任何照片，点击下方按钮开始丰富您的收藏。'
+                }
+                action={!showFavoritesOnly ? {
+                  label: '导入第一张照片',
+                  onClick: handleOpenAddPhotosDialog,
+                } : {
+                  label: '显示所有照片',
+                  onClick: () => setShowFavoritesOnly(false),
+                }}
+              />
+            </div>
+          ) : (
+            <div className="animate-fade-in-up" style={{ animationDelay: '200ms' }}>
+              <PhotoGrid
+                photos={photos}
+                selectedPhotos={selectedPhotos}
+                onPhotoClick={handlePhotoClick}
+                onToggleSelection={handleToggleSelection}
+                onToggleFavorite={handleToggleFavorite}
+              />
+            </div>
+          )}
+        </main>
+      </div>
 
       {/* Batch Selection Bar */}
       {selectedPhotos.size > 0 && (

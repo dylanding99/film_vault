@@ -21,7 +21,7 @@ export interface PresetFormData {
   format: string;
   brand_color: string;
   brand: string;
-  imageFile?: File;
+  image_path?: string;
 }
 
 // Common film formats

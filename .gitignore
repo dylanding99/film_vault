@@ -54,3 +54,12 @@ next-env.d.ts
 # Local development scripts
 setup-dev-env.bat
 start-dev.bat
+start_dev.bat
+
+# Temporary files
+temp.txt
+*.backup
+*.new
+
+# Examples directories
+examples/

@@ -1,18 +1,20 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, Suspense } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useSearchParams } from 'next/navigation';
-import { Plus, Settings, CheckSquare, Film } from 'lucide-react';
+import { CheckSquare, Film, Loader2, Upload, Settings } from 'lucide-react';
 import { RollCard } from '@/components/RollCard';
 import { RollFilters } from '@/components/RollFilters';
+import { Button } from '@/components/ui/button';
+import Link from 'next/link';
+import { Header } from '@/components/Header';
 import { ImportDialog } from '@/components/ImportDialog';
 import { EditMetadataForm } from '@/components/EditMetadataForm';
 import { SettingsDialog } from '@/components/SettingsDialog';
 import { BatchSelectionBar } from '@/components/BatchSelectionBar';
 import { DeleteRollDialog } from '@/components/DeleteRollDialog';
-import { Button } from '@/components/ui/button';
-import Link from 'next/link';
+import { EmptyState } from '@/components/EmptyState';
 import {
   getAllRolls,
   importFolder,
@@ -27,10 +29,12 @@ import { filterRolls, searchParamsToFilters, filtersToSearchParams } from '@/lib
 import type { Roll, Photo, ImportOptions, UpdateRollRequest, DeleteRollRequest } from '@/types/roll';
 import type { RollFilters as RollFiltersType } from '@/types/filter';
 
-export default function HomePage() {
+// Main page content component with searchParams
+function HomePageContent() {
   const queryClient = useQueryClient();
   const searchParams = useSearchParams();
 
+  // Dialog states
   const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isSettingsDialogOpen, setIsSettingsDialogOpen] = useState(false);
@@ -40,6 +44,9 @@ export default function HomePage() {
   // Batch selection states
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedRolls, setSelectedRolls] = useState<Set<number>>(new Set());
+
+  // Page loading state
+  const [isPageLoading, setIsPageLoading] = useState(true);
 
   // Initialize filters from URL search params
   const initialFilters = useMemo(() => {
@@ -72,35 +79,42 @@ export default function HomePage() {
   const { data: config, isLoading: isConfigLoading } = useQuery({
     queryKey: ['config'],
     queryFn: getConfig,
-    staleTime: 1000, // Consider data fresh for 1 second
+    staleTime: 1000,
   });
 
   const libraryRoot = config?.library_root || '';
 
   // Fetch all rolls
-  const { data: rolls = [], isLoading } = useQuery({
+  const { data: rolls = [], isLoading: isRollsLoading } = useQuery({
     queryKey: ['rolls'],
     queryFn: getAllRolls,
   });
 
+  // Fetch all film presets
+  const { data: filmPresets = [], isLoading: isPresetsLoading } = useQuery({
+    queryKey: ['film-presets'],
+    queryFn: () => import('@/lib/db').then(db => db.getFilmPresets()),
+  });
+
   // Fetch photos for each roll to get cover images and favorite count
   const { data: rollsWithPhotos } = useQuery({
-    queryKey: ['rolls', 'with-photos'],
+    queryKey: ['rolls', 'with-photos', filmPresets.length], // Include filmPresets.length to re-run when presets are loaded
     queryFn: async () => {
       const rollsWithData = await Promise.all(
         rolls.map(async (roll) => {
           try {
             const photos = await getPhotosByRoll(roll.id);
-            console.log('[Roll', roll.id, '] Photos:', photos);
             const coverPhoto = photos.find(p => p.is_cover) || photos[0];
-            console.log('[Roll', roll.id, '] Cover photo:', coverPhoto);
             const favoriteCount = photos.filter(p => p.is_favorite).length;
-            // Add favoriteCount to roll object for filtering
+
+            // Find matching preset for this roll
+            const preset = filmPresets.find(p => p.name === roll.film_stock);
+
             const rollWithCount = { ...roll, favoriteCount } as Roll & { favoriteCount: number };
-            return { roll: rollWithCount, coverPhoto, photoCount: photos.length };
+            return { roll: rollWithCount, coverPhoto, photoCount: photos.length, preset };
           } catch (e) {
             console.error('[Roll', roll.id, '] Error fetching photos:', e);
-            return { roll, coverPhoto: undefined, photoCount: 0, favoriteCount: 0 };
+            return { roll, coverPhoto: undefined, photoCount: 0, favoriteCount: 0, preset: undefined };
           }
         })
       );
@@ -115,12 +129,20 @@ export default function HomePage() {
     return filterRolls(rollList, filters);
   }, [rollsWithPhotos, filters]);
 
-  // Get filtered rollswithPhotos data
+  // Get filtered rolls with photos data
   const filteredRollsWithPhotos = useMemo(() => {
     if (!rollsWithPhotos) return [];
     const filteredIds = new Set(filteredRolls.map(r => r.id));
     return rollsWithPhotos.filter(item => filteredIds.has(item.roll.id));
   }, [rollsWithPhotos, filteredRolls]);
+
+  // Page loading state - hide skeleton after data is ready
+  useEffect(() => {
+    if (!isConfigLoading && !isRollsLoading && rolls.length > 0) {
+      const timer = setTimeout(() => setIsPageLoading(false), 300);
+      return () => clearTimeout(timer);
+    }
+  }, [isConfigLoading, isRollsLoading, rolls.length]);
 
   // Import mutation
   const importMutation = useMutation({
@@ -132,21 +154,19 @@ export default function HomePage() {
       await queryClient.cancelQueries({ queryKey: ['rolls'] });
       await queryClient.cancelQueries({ queryKey: ['rolls', 'with-photos'] });
 
-      // Reset queries to force hard refetch (more aggressive than invalidate)
+      // Reset queries to force hard refetch
       await queryClient.resetQueries({ queryKey: ['rolls'] });
       await queryClient.resetQueries({ queryKey: ['rolls', 'with-photos'] });
 
       // Refetch to ensure we have the latest data
       await queryClient.refetchQueries({ queryKey: ['rolls'] });
 
-      // Wait a bit for the rolls query to complete before refetching with-photos
+      // Wait a bit for rolls query to complete before refetching with-photos
       await new Promise(resolve => setTimeout(resolve, 100));
 
       await queryClient.refetchQueries({ queryKey: ['rolls', 'with-photos'] });
 
       console.log('[Import] Queries refetched, closing dialog');
-
-      // Close dialog after data is refreshed
       setIsImportDialogOpen(false);
     },
     onError: (error: Error) => {
@@ -155,13 +175,17 @@ export default function HomePage() {
     },
   });
 
-  // Update mutation
+  // Update roll mutation
   const updateMutation = useMutation({
     mutationFn: (request: UpdateRollRequest) => updateRoll(request),
-    onSuccess: async () => {
-      // Refetch queries and wait for completion to ensure UI shows updated data
-      await queryClient.refetchQueries({ queryKey: ['rolls'] });
-      await queryClient.refetchQueries({ queryKey: ['rolls', 'with-photos'] });
+    onSuccess: async (_, variables) => {
+      await queryClient.invalidateQueries({ queryKey: ['rolls'] });
+      await queryClient.invalidateQueries({ queryKey: ['rolls', 'with-photos'] });
+      setIsEditDialogOpen(false);
+    },
+    onError: (error: Error) => {
+      console.error('Failed to update roll:', error);
+      alert(`更新胶卷失败: ${error.message}`);
     },
   });
 
@@ -193,10 +217,8 @@ export default function HomePage() {
 
   const handleSaveSettings = async (path: string) => {
     await updateLibraryRoot(path);
-    // Invalidate config query to fetch updated value
     await queryClient.invalidateQueries({ queryKey: ['config'] });
     await queryClient.refetchQueries({ queryKey: ['config'] });
-    // Refetch rolls queries
     await queryClient.refetchQueries({ queryKey: ['rolls'] });
   };
 
@@ -204,12 +226,10 @@ export default function HomePage() {
   const deleteMutation = useMutation({
     mutationFn: (request: DeleteRollRequest) => deleteRoll(request),
     onSuccess: async (_, variables) => {
-      // Remove the deleted roll from cache immediately
       queryClient.setQueryData<Roll[]>(['rolls'], (oldData) => {
         return oldData?.filter(roll => roll.id !== variables.id) ?? [];
       });
 
-      // Also update the with-photos query
       queryClient.setQueryData<{ roll: Roll; coverPhoto?: Photo; photoCount: number }[]>(
         ['rolls', 'with-photos'],
         (oldData) => {
@@ -217,11 +237,9 @@ export default function HomePage() {
         }
       );
 
-      // Then invalidate to ensure consistency
       await queryClient.invalidateQueries({ queryKey: ['rolls'] });
       await queryClient.invalidateQueries({ queryKey: ['rolls', 'with-photos'] });
 
-      // Close dialog and clear selection
       setSelectedRolls(new Set());
       setSelectionMode(false);
       setIsDeleteDialogOpen(false);
@@ -275,7 +293,6 @@ export default function HomePage() {
   };
 
   const handleConfirmDeleteRoll = async () => {
-    // Immediately remove deleted rolls from cache to prevent loading deleted files
     const deletedIds = Array.from(selectedRolls);
 
     queryClient.setQueryData<Roll[]>(['rolls'], (oldData) => {
@@ -289,7 +306,6 @@ export default function HomePage() {
       }
     );
 
-    // Delete each selected roll with all files
     for (const rollId of selectedRolls) {
       try {
         await deleteRoll({
@@ -302,186 +318,228 @@ export default function HomePage() {
       }
     }
 
-    // Refresh data to ensure consistency
     await queryClient.invalidateQueries({ queryKey: ['rolls'] });
     await queryClient.invalidateQueries({ queryKey: ['rolls', 'with-photos'] });
 
-    // Close dialog and clear selection
     setSelectedRolls(new Set());
     setSelectionMode(false);
     setIsDeleteDialogOpen(false);
   };
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="border-b border-zinc-800 bg-zinc-950/50 backdrop-blur sticky top-0 z-10">
-        <div className="container mx-auto px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="text-3xl">🎞️</div>
-            <div>
-              <h1 className="text-xl font-bold text-white">FilmVault</h1>
-              <p className="text-xs text-zinc-500">Film Photography Management</p>
+    <div style={{ background: 'hsl(var(--bg-deep))', minHeight: '100vh' }}>
+      {/* Page Loading Animation - The Film Vault Ocean */}
+      {isPageLoading ? (
+        <div className="fixed inset-0 flex flex-col items-center justify-center z-[100] bg-deep overflow-hidden">
+          {/* Cinematic Background Glows */}
+          <div className="absolute top-1/4 left-1/4 w-[500px] h-[500px] bg-color-brand/10 rounded-full blur-[120px] animate-pulse" style={{ animationDuration: '4s' }} />
+          <div className="absolute bottom-1/4 right-1/4 w-[600px] h-[600px] bg-color-brand/5 rounded-full blur-[140px] animate-pulse" style={{ animationDuration: '6s' }} />
+          
+          {/* The Card Ocean - Floating Silhouettes */}
+          <div className="absolute inset-0 pointer-events-none opacity-40">
+            {[...Array(12)].map((_, i) => {
+              const delay = i * 200;
+              const size = 120 + (i % 4) * 40;
+              const left = `${(i * 17) % 100}%`;
+              const top = `${(i * 13) % 100}%`;
+              const opacity = 0.02 + (i % 5) * 0.02;
+              const rotate = (i * 15) % 45 - 22;
+              
+              return (
+                <div
+                  key={i}
+                  className="loading-ocean-card"
+                  style={{
+                    width: `${size}px`,
+                    height: `${size * 1.3}px`,
+                    left,
+                    top,
+                    opacity,
+                    transform: `rotate(${rotate}deg)`,
+                    animationDelay: `${delay}ms, ${delay + 1000}ms`,
+                    animationDuration: '1.2s, 12s',
+                  }}
+                >
+                  {/* Internal card details silhouette */}
+                  <div className="absolute top-2 left-2 right-2 h-2/3 bg-white/5 rounded-sm" />
+                  <div className="absolute bottom-4 left-2 w-1/2 h-2 bg-white/10 rounded-full" />
+                  <div className="absolute bottom-2 left-2 w-1/3 h-1.5 bg-white/5 rounded-full" />
+                </div>
+              );
+            })}
+          </div>
+
+          <div className="relative z-10 flex flex-col items-center gap-8 animate-fade-in-up">
+            {/* Animated Central Logo Mark */}
+            <div className="relative group">
+              <div className="absolute inset-0 bg-color-brand blur-2xl opacity-20 group-hover:opacity-40 transition-opacity animate-pulse" />
+              <div 
+                className="logo-mark w-20 h-20 relative z-10 scale-125 border border-white/10 shadow-glow"
+                style={{ animation: 'scaleIn 0.8s var(--ease-out-quint)' }}
+              />
+            </div>
+
+            {/* Loading Status Text */}
+            <div className="flex flex-col items-center gap-2">
+              <div className="flex items-center gap-4">
+                <div className="h-px w-8 bg-gradient-to-r from-transparent to-white/20" />
+                <span className="text-xl font-display font-medium text-white tracking-[0.2em] uppercase">
+                  FilmVault
+                </span>
+                <div className="h-px w-8 bg-gradient-to-l from-transparent to-white/20" />
+              </div>
+              
+              <div className="flex items-center gap-2 text-[10px] font-mono text-tertiary uppercase tracking-[0.4em] mt-1 ml-1">
+                <Loader2 className="w-3 h-3 animate-spin text-color-brand" />
+                <span>Initializing Archive</span>
+              </div>
             </div>
           </div>
-
-          <div className="flex items-center gap-2">
-            <Link href="/presets">
-              <Button
-                variant="outline"
-                size="icon"
-                title="胶片预设"
-              >
-                <Film className="h-5 w-5" />
-              </Button>
-            </Link>
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={() => setIsSettingsDialogOpen(true)}
-              title="设置"
-            >
-              <Settings className="h-5 w-5" />
-            </Button>
-            {rolls.length > 0 && (
-              <Button
-                variant={selectionMode ? "default" : "outline"}
-                size="icon"
-                onClick={handleToggleSelectionMode}
-                title={selectionMode ? "退出选择模式" : "进入选择模式"}
-              >
-                <CheckSquare className="h-5 w-5" />
-              </Button>
-            )}
-            <Button
-              onClick={() => setIsImportDialogOpen(true)}
-              size="lg"
-              className="gap-2"
-            >
-              <Plus className="h-5 w-5" />
-              导入胶卷
-            </Button>
-          </div>
         </div>
-      </header>
+      ) : (
+        <>
+          {/* Header */}
+          <Header
+            rollsCount={rolls.length}
+            selectionMode={selectionMode}
+            selectedCount={selectedRolls.size}
+            onToggleSelectionMode={handleToggleSelectionMode}
+            onOpenSettings={() => setIsSettingsDialogOpen(true)}
+            onOpenImport={() => setIsImportDialogOpen(true)}
+          />
 
-      {/* Main Content */}
-      <main className="container mx-auto px-6 py-8">
-        {isLoading ? (
-          <div className="flex items-center justify-center h-64">
-            <div className="text-zinc-500">加载中...</div>
-          </div>
-        ) : rolls.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-[60vh] text-center">
-            <div className="text-8xl mb-6">📷</div>
-            <h2 className="text-2xl font-semibold text-white mb-2">还没有胶卷</h2>
-            <p className="text-zinc-500 mb-6 max-w-md">
-              导入您的第一个胶卷开始使用。选择一个包含照片的文件夹，我们会为您整理。
-            </p>
-            <Button
-              onClick={() => setIsImportDialogOpen(true)}
-              size="lg"
-              className="gap-2"
-            >
-              <Plus className="h-5 w-5" />
-              导入第一个胶卷
-            </Button>
-          </div>
-        ) : (
-          <>
-            {/* Filters */}
-            <RollFilters
-              rolls={rolls}
-              filters={filters}
-              onFiltersChange={setFilters}
-              filteredCount={filteredRolls.length}
-              totalCount={rolls.length}
-            />
-
-            {/* Rolls Grid */}
-            {filteredRollsWithPhotos.length === 0 ? (
-              <div className="flex flex-col items-center justify-center h-[40vh] text-center">
-                <div className="text-6xl mb-4">🔍</div>
-                <h2 className="text-xl font-semibold text-white mb-2">没有找到匹配的胶卷</h2>
-                <p className="text-zinc-500 mb-4">
-                  尝试调整您的搜索条件
-                </p>
-                <Button
-                  variant="outline"
-                  onClick={() => setFilters({
-                    searchTerm: '',
-                    filmStock: 'all',
-                    camera: 'all',
-                    dateRange: { from: null, to: null },
-                    hasFavorites: false,
-                  })}
-                >
-                  清除筛选条件
-                </Button>
+          {/* Main Content */}
+          <main className="page-container" style={{ paddingTop: '100px' }}>
+            {isRollsLoading ? (
+              <div className="flex justify-center">
+                <Loader2 className="w-8 h-8 animate-spin text-tertiary" />
               </div>
+            ) : rolls.length === 0 ? (
+              <EmptyState
+                type="no-rolls"
+                message="开始您的胶片之旅"
+                submessage="导入第一个胶卷，记录每一次快门释放的瞬间"
+                action={{
+                  label: '导入第一个胶卷',
+                  onClick: () => setIsImportDialogOpen(true),
+                }}
+              />
             ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                {filteredRollsWithPhotos.map(({ roll, coverPhoto, photoCount }) => (
-                  <RollCard
-                    key={roll.id}
-                    roll={roll}
-                    coverPhoto={coverPhoto}
-                    photoCount={photoCount}
-                    onEdit={handleEdit}
-                    selectionMode={selectionMode}
-                    selected={selectedRolls.has(roll.id)}
-                    onToggleSelection={handleToggleRollSelection}
+              <>
+                {/* Filters */}
+                <RollFilters
+                  rolls={rolls}
+                  filters={filters}
+                  onFiltersChange={setFilters}
+                />
+
+                {/* Result Count */}
+                <div className="mb-6 text-tertiary font-mono text-xs">
+                  {filteredRolls.length === rolls.length ? (
+                    <span>共 {rolls.length} 个胶卷</span>
+                  ) : (
+                    <span>
+                      找到 {filteredRolls.length} 个胶卷（共 {rolls.length} 个）
+                    </span>
+                  )}
+                </div>
+
+                {/* Rolls Grid */}
+                {filteredRollsWithPhotos.length === 0 ? (
+                  <EmptyState
+                    type="no-results"
+                    message="没有找到匹配的胶卷"
+                    submessage="尝试调整您的搜索条件"
+                    action={{
+                      label: '清除筛选条件',
+                      onClick: () => setFilters({
+                        searchTerm: '',
+                        filmStock: 'all',
+                        camera: 'all',
+                        dateRange: { from: null, to: null },
+                        hasFavorites: false,
+                      }),
+                    }}
                   />
-                ))}
-              </div>
+                ) : (
+                  <div className="grid-gallery">
+                    {filteredRollsWithPhotos.map(({ roll, coverPhoto, photoCount, preset }, index) => (
+                      <RollCard
+                        key={roll.id}
+                        roll={roll}
+                        coverPhoto={coverPhoto}
+                        photoCount={photoCount}
+                        preset={preset}
+                        onEdit={handleEdit}
+                        selectionMode={selectionMode}
+                        selected={selectedRolls.has(roll.id)}
+                        onToggleSelection={handleToggleRollSelection}
+                        index={index}
+                      />
+                    ))}
+                  </div>
+                )}
+              </>
             )}
-          </>
-        )}
-      </main>
+          </main>
 
-      {/* Dialogs */}
-      <ImportDialog
-        open={isImportDialogOpen}
-        onOpenChange={setIsImportDialogOpen}
-        onImport={handleImport}
-        libraryRoot={libraryRoot}
-      />
+          {/* Dialogs */}
+          <ImportDialog
+            open={isImportDialogOpen}
+            onOpenChange={setIsImportDialogOpen}
+            onImport={handleImport}
+            libraryRoot={libraryRoot}
+          />
 
-      <EditMetadataForm
-        open={isEditDialogOpen}
-        onOpenChange={setIsEditDialogOpen}
-        roll={selectedRoll}
-        onSave={handleSaveEdit}
-      />
+          <EditMetadataForm
+            open={isEditDialogOpen}
+            onOpenChange={setIsEditDialogOpen}
+            roll={selectedRoll}
+            onSave={handleSaveEdit}
+          />
 
-      <SettingsDialog
-        open={isSettingsDialogOpen}
-        onOpenChange={setIsSettingsDialogOpen}
-        currentLibraryRoot={libraryRoot}
-        onSave={handleSaveSettings}
-      />
+          <SettingsDialog
+            open={isSettingsDialogOpen}
+            onOpenChange={setIsSettingsDialogOpen}
+            currentLibraryRoot={libraryRoot}
+            onSave={handleSaveSettings}
+          />
 
-      {/* Batch Selection Bar */}
-      {selectedRolls.size > 0 && (
-        <BatchSelectionBar
-          selectedCount={selectedRolls.size}
-          totalCount={filteredRolls.length}
-          onSelectAll={handleSelectAllRolls}
-          onDeselectAll={handleDeselectAllRolls}
-          onClearSelection={handleClearRollSelection}
-          onDelete={handleDeleteRolls}
-          itemType="roll"
-        />
+          <DeleteRollDialog
+            open={isDeleteDialogOpen}
+            onOpenChange={setIsDeleteDialogOpen}
+            deleteCount={selectedRolls.size}
+            onDelete={handleConfirmDeleteRoll}
+            isDeleting={deleteMutation.isPending}
+          />
+
+          {/* Batch Selection Bar */}
+          {selectionMode && (
+            <BatchSelectionBar
+              selectedCount={selectedRolls.size}
+              totalCount={filteredRolls.length}
+              onSelectAll={handleSelectAllRolls}
+              onDeselectAll={handleDeselectAllRolls}
+              onClearSelection={handleClearRollSelection}
+              onDelete={handleDeleteRolls}
+              itemType="roll"
+            />
+          )}
+        </>
       )}
-
-      {/* Delete Roll Dialog */}
-      <DeleteRollDialog
-        open={isDeleteDialogOpen}
-        onOpenChange={setIsDeleteDialogOpen}
-        deleteCount={selectedRolls.size}
-        onDelete={handleConfirmDeleteRoll}
-        isDeleting={deleteMutation.isPending}
-      />
     </div>
+  );
+}
+
+// Default export with Suspense boundary
+export default function HomePage() {
+  return (
+    <Suspense fallback={
+      <div className="fixed inset-0 flex items-center justify-center bg-deep">
+        <Loader2 className="w-8 h-8 animate-spin text-tertiary" />
+      </div>
+    }>
+      <HomePageContent />
+    </Suspense>
   );
 }
