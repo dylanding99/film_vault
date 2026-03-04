@@ -11,6 +11,7 @@ import { Button } from './ui/button';
 import { Label } from './ui/label';
 import { Input } from './ui/input';
 import { Settings, HardDrive, CheckCircle, XCircle, Loader2 } from 'lucide-react';
+import { colors, spacing, iconSizes, dialogContentPadding } from '@/styles/design-tokens';
 import * as DialogPlugin from '@tauri-apps/plugin-dialog';
 import { checkExifToolAvailable } from '@/lib/db';
 
@@ -107,22 +108,22 @@ export function SettingsDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto bg-zinc-900 border-zinc-800 text-zinc-100">
+      <DialogContent size="lg">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2 text-zinc-100">
-            <Settings className="h-5 w-5" />
+          <DialogTitle className="flex items-center gap-2">
+            <Settings className={iconSizes.LG} />
             设置
           </DialogTitle>
-          <DialogDescription className="text-zinc-400">
+          <DialogDescription>
             配置 FilmVault 应用偏好设置
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-6 py-4">
+        <div className={`space-y-6 ${dialogContentPadding.MD}`}>
           {/* 存储设置 */}
           <div className="space-y-3">
-            <h3 className="text-sm font-semibold text-zinc-300 flex items-center gap-2">
-              <HardDrive className="h-4 w-4" />
+            <h3 className={`text-sm font-semibold flex items-center gap-2 ${colors.text.SECONDARY}`}>
+              <HardDrive className={iconSizes.MD} />
               存储设置
             </h3>
             <div className="space-y-2">
@@ -188,7 +189,7 @@ export function SettingsDialog({
             type="button"
             onClick={handleSave}
             disabled={isSaving}
-            className="bg-blue-600 hover:bg-blue-700"
+            className={`${colors.primary.DEFAULT} ${colors.primary.hover}`}
           >
             {isSaving ? '保存中...' : '保存'}
           </Button>

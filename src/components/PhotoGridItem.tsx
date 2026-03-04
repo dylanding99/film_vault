@@ -1,8 +1,8 @@
 'use client';
 
-import { useState, useEffect } from 'react';
 import { Check, Heart } from 'lucide-react';
-import { pathToAssetUrl } from '@/lib/utils';
+import { useImageAsset } from '@/hooks/useImageAsset';
+import { colors, iconSizes } from '@/styles/design-tokens';
 import type { Photo } from '@/types/roll';
 
 interface PhotoGridItemProps {
@@ -22,29 +22,8 @@ export function PhotoGridItem({
   onToggleSelect,
   onToggleFavorite,
 }: PhotoGridItemProps) {
-  const [thumbnailUrl, setThumbnailUrl] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [hasError, setHasError] = useState(false);
-
-  useEffect(() => {
-    if (photo.thumbnail_path) {
-      console.log('[PhotoGridItem', photo.id, '] Converting thumbnail_path:', photo.thumbnail_path);
-      pathToAssetUrl(photo.thumbnail_path)
-        .then(url => {
-          console.log('[PhotoGridItem', photo.id, '] Converted URL:', url);
-          setThumbnailUrl(url);
-          setIsLoading(false);
-        })
-        .catch(err => {
-          console.error('[PhotoGridItem', photo.id, '] Failed to convert URL:', err);
-          setHasError(true);
-          setIsLoading(false);
-        });
-    } else {
-      setIsLoading(false);
-      setHasError(true);
-    }
-  }, [photo.thumbnail_path, photo.id]);
+  // Use useImageAsset for thumbnail loading
+  const { url: thumbnailUrl, isLoading, hasError } = useImageAsset(photo.thumbnail_path);
 
   const handleClick = (e: React.MouseEvent) => {
     // Ctrl+Click for selection
@@ -59,78 +38,56 @@ export function PhotoGridItem({
     <div
       onClick={handleClick}
       className={`
-        group relative aspect-square overflow-hidden rounded-lg border-2 transition-all cursor-pointer
+        group relative aspect-square overflow-hidden rounded-xl border transition-all duration-300 cursor-pointer animate-fade-in-up
         ${isSelected
-          ? 'border-blue-500 ring-2 ring-blue-500/50'
-          : 'border-zinc-800 hover:border-zinc-700'
+          ? 'border-color-brand ring-2 ring-color-brand/30 shadow-glow'
+          : 'border-subtle hover:border-default bg-surface'
         }
       `}
+      style={{ animationDelay: `${index * 30}ms` }}
     >
-      {/* Thumbnail Image */}
-      {isLoading ? (
-        <div className="h-full w-full bg-zinc-900 animate-pulse" />
-      ) : hasError || !thumbnailUrl ? (
-        <div className="flex h-full w-full items-center justify-center bg-zinc-900">
-          <div className="text-zinc-700 text-4xl">📷</div>
-        </div>
-      ) : (
-        <img
-          src={thumbnailUrl}
-          alt={photo.filename}
-          loading="lazy"
-          className="h-full w-full object-cover transition-transform group-hover:scale-105"
-          onError={(e) => {
-            console.error('[PhotoGridItem', photo.id, '] Image load error');
-            setHasError(true);
-          }}
-        />
-      )}
+      {/* Thumbnail Image with Film Frame effect on hover */}
+      <div className={`h-full w-full transition-transform duration-500 ${isSelected ? 'scale-[0.9]' : 'group-hover:scale-105'}`}>
+        {isLoading ? (
+          <div className="h-full w-full loading-skeleton" />
+        ) : hasError || !thumbnailUrl ? (
+          <div className="flex h-full w-full items-center justify-center bg-deep">
+            <div className="text-tertiary opacity-20 text-4xl">📷</div>
+          </div>
+        ) : (
+          <img
+            src={thumbnailUrl}
+            alt={photo.filename}
+            loading="lazy"
+            className="h-full w-full object-cover"
+            onError={(e) => {
+              console.error('[PhotoGridItem', photo.id, '] Image load error:', e);
+            }}
+          />
+        )}
+      </div>
 
       {/* Cover Badge */}
       {photo.is_cover && (
-        <div className="absolute top-2 right-2 px-2 py-1 rounded-full bg-blue-600 text-white text-xs font-semibold">
-          Cover
+        <div className="absolute top-3 right-3 px-2 py-0.5 rounded-full bg-color-brand text-white text-[10px] font-bold font-mono tracking-wider shadow-glow">
+          COVER
         </div>
       )}
 
       {/* Selection Overlay */}
-      {isSelected && (
-        <div className="absolute inset-0 bg-blue-500/20 flex items-center justify-center">
-          <div className="p-2 rounded-full bg-blue-500">
-            <Check className="h-4 w-4 text-white" />
-          </div>
-        </div>
-      )}
-
-      {/* Hover Overlay */}
-      {!isSelected && (
-        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
-          <div className="p-3 rounded-full bg-black/50 backdrop-blur-sm">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="h-6 w-6 text-white"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7"
-              />
-            </svg>
-          </div>
-        </div>
-      )}
+      <div 
+        className={`absolute inset-0 bg-color-brand/10 transition-opacity duration-300 pointer-events-none ${
+          isSelected ? 'opacity-100' : 'opacity-0'
+        }`}
+      />
 
       {/* Selection Checkbox (visible on hover or when selected) */}
       <div
         className={`
-          absolute top-2 left-2 p-1.5 rounded transition-all
+          absolute top-3 left-3 w-6 h-6 rounded-lg flex items-center justify-center transition-all duration-300
           ${isSelected
-            ? 'bg-blue-500'
-            : 'opacity-0 group-hover:opacity-100 bg-black/50 backdrop-blur-sm'
+            ? 'bg-color-brand shadow-glow scale-110'
+            : 'opacity-0 group-hover:opacity-100 bg-surface/60 backdrop-blur-md border border-white/20'
           }
         `}
         onClick={(e) => {
@@ -139,19 +96,19 @@ export function PhotoGridItem({
         }}
       >
         {isSelected ? (
-          <Check className="h-3 w-3 text-white" />
+          <Check className="w-4 h-4 text-white" />
         ) : (
-          <div className="h-3 w-3 border-2 border-white rounded-sm" />
+          <div className="w-2.5 h-2.5 rounded-sm border border-white/40" />
         )}
       </div>
 
       {/* Favorite Heart Button */}
       <div
         className={`
-          absolute bottom-2 right-2 p-2 rounded-full transition-all cursor-pointer
+          absolute bottom-3 right-3 w-9 h-9 flex items-center justify-center rounded-full transition-all duration-300 cursor-pointer
           ${photo.is_favorite
-            ? 'bg-red-500/90 text-white scale-110'
-            : 'bg-black/50 text-white opacity-0 group-hover:opacity-100'
+            ? 'bg-accent-rose text-white shadow-lg shadow-rose-900/20 scale-110'
+            : 'bg-surface/60 backdrop-blur-md text-white border border-white/10 opacity-0 group-hover:opacity-100'
           }
         `}
         onClick={(e) => {
@@ -160,8 +117,15 @@ export function PhotoGridItem({
         }}
       >
         <Heart
-          className={`h-4 w-4 ${photo.is_favorite ? 'fill-current' : ''}`}
+          className={`w-4 h-4 ${photo.is_favorite ? 'fill-current' : ''}`}
         />
+      </div>
+
+      {/* Index Badge (Subtle, only on hover) */}
+      <div className="absolute bottom-3 left-3 opacity-0 group-hover:opacity-40 transition-opacity pointer-events-none">
+        <span className="font-mono text-[10px] text-white bg-black/40 px-1.5 py-0.5 rounded">
+          {index + 1}
+        </span>
       </div>
     </div>
   );

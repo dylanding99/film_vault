@@ -1,5 +1,14 @@
 import * as React from "react"
 import { cn } from "@/lib/utils"
+import {
+  dialogSizes,
+  dialogContentPadding,
+  spacing,
+  colors,
+  transitions,
+  borderRadius,
+  typography,
+} from "@/styles/design-tokens"
 
 interface DialogProps {
   open?: boolean
@@ -25,21 +34,46 @@ const Dialog = ({ open, onOpenChange, children }: DialogProps) => {
   )
 }
 
+interface DialogContentProps extends React.HTMLAttributes<HTMLDivElement> {
+  size?: 'sm' | 'md' | 'lg' | 'xl' | '2xl' | 'full'
+  padding?: 'sm' | 'md' | 'lg'
+}
+
 const DialogContent = React.forwardRef<
   HTMLDivElement,
-  React.HTMLAttributes<HTMLDivElement>
->(({ className, children, ...props }, ref) => (
+  DialogContentProps
+>(({ className, size = 'lg', padding = 'md', children, ...props }, ref) => {
+  const sizeClass = {
+    sm: 'max-w-[400px]',
+    md: 'max-w-[500px]',
+    lg: 'max-w-[600px]',
+    xl: 'max-w-[700px]',
+    '2xl': 'max-w-[800px]',
+    full: 'max-w-[95vw] max-h-[95vh]',
+  }[size];
+
+  const paddingClass = dialogContentPadding[padding.toUpperCase() as keyof typeof dialogContentPadding];
+
+  return (
   <div
     ref={ref}
     className={cn(
-      "fixed left-[50%] top-[50%] z-50 grid w-full max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 border bg-zinc-950 p-6 shadow-lg duration-200 sm:rounded-lg",
+      "fixed left-[50%] top-[50%] z-50 grid w-full translate-x-[-50%] translate-y-[-50%]",
+      sizeClass,
+      paddingClass,
+      spacing.gap.LG,
+      colors.border.DEFAULT,
+      colors.background.DEFAULT,
+      "shadow-lg",
+      transitions.NORMAL,
+      borderRadius.LG,
       className
     )}
     {...props}
   >
     {children}
   </div>
-))
+)})
 DialogContent.displayName = "DialogContent"
 
 const DialogHeader = ({
@@ -77,7 +111,10 @@ const DialogTitle = React.forwardRef<
   <h2
     ref={ref}
     className={cn(
-      "text-lg font-semibold leading-none tracking-tight text-white",
+      typography.fontSize.LG,
+      typography.fontWeight.SEMIBOLD,
+      "leading-none tracking-tight",
+      colors.text.PRIMARY,
       className
     )}
     {...props}
@@ -91,7 +128,7 @@ const DialogDescription = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <p
     ref={ref}
-    className={cn("text-sm text-zinc-400", className)}
+    className={cn(typography.fontSize.SM, colors.text.TERTIARY, className)}
     {...props}
   />
 ))

@@ -15,10 +15,13 @@ export function FilmStripBadge({ filmStock, className = '' }: FilmStripBadgeProp
 
   return (
     <div
-      className={`flex items-center gap-2 px-3 py-1.5 text-white text-xs font-bold tracking-wider uppercase ${displayColor} ${className}`}
+      className={`
+        inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[10px] font-bold tracking-[0.1em] uppercase shadow-sm border border-white/10
+        ${displayColor} ${className}
+      `}
     >
-      <div className="w-2 h-2 rounded-full bg-white/30" />
-      <span>{displayText}</span>
+      <div className="w-1.5 h-1.5 rounded-full bg-white/40 animate-pulse" />
+      <span className="text-white drop-shadow-sm">{displayText}</span>
     </div>
   );
 }

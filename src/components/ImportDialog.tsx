@@ -12,6 +12,8 @@ import { Button } from './ui/button';
 import { Label } from './ui/label';
 import { Input } from './ui/input';
 import { Select } from './ui/select';
+import { colors, spacing, iconSizes, dialogContentPadding } from '@/styles/design-tokens';
+import { CAMERAS } from '@/constants/cameras';
 import * as DialogPlugin from '@tauri-apps/plugin-dialog';
 import { listen } from '@tauri-apps/api/event';
 import { FILM_STOCKS, ImportOptions } from '@/types/roll';
@@ -21,6 +23,7 @@ import { previewImportCount, getFilmPresets, createFilmPreset } from '@/lib/db';
 import { FilmPresetGrid } from './FilmPresetGrid';
 import { FilmPresetForm } from './FilmPresetForm';
 import { Plus } from 'lucide-react';
+import { toast } from '@/components/ui/toast';
 
 interface ImportDialogProps {
   open: boolean;
@@ -29,32 +32,6 @@ interface ImportDialogProps {
   libraryRoot: string;
 }
 
-const CAMERAS = [
-  'Canon AE-1',
-  'Canon A-1',
-  'Canon EOS 5',
-  'Nikon FM2',
-  'Nikon F3',
-  'Nikon FE2',
-  'Olympus OM-1',
-  'Olympus OM-2',
-  'Pentax K1000',
-  'Pentax MX',
-  'Minolta X-700',
-  'Minolta X-570',
-  'Leica M6',
-  'Leica M3',
-  'Contax T2',
-  'Contax T3',
-  'Yashica T4',
-  'Ricoh GR1',
-  'Fujifilm Klasse W',
-  'Fujifilm GA645',
-  'Mamiya 645',
-  'Mamiya 7',
-  'Hasselblad 500C/M',
-  'Other',
-];
 
 export function ImportDialog({ open, onOpenChange, onImport, libraryRoot }: ImportDialogProps) {
   const [sourcePath, setSourcePath] = useState('');
@@ -120,7 +97,7 @@ export function ImportDialog({ open, onOpenChange, onImport, libraryRoot }: Impo
         try {
           const count = await previewImportCount(selected);
           if (count === 0) {
-            alert('选择的文件夹中没有找到图片文件（支持的格式：jpg, jpeg, png, webp, tif, tiff, bmp）');
+            toast.error('选择的文件夹中没有找到图片文件（支持的格式：jpg, jpeg, png, webp, tif, tiff, bmp）');
             setSourcePath('');
             return;
           }
@@ -136,7 +113,7 @@ export function ImportDialog({ open, onOpenChange, onImport, libraryRoot }: Impo
 
   const handleImport = async () => {
     if (!sourcePath) {
-      alert('请选择源文件夹');
+      toast.error('请选择源文件夹');
       return;
     }
 
@@ -168,7 +145,7 @@ export function ImportDialog({ open, onOpenChange, onImport, libraryRoot }: Impo
       setImportProgress({ current: 0, total: 0, filename: '' });
     } catch (error) {
       console.error('Import failed:', error);
-      alert(`导入失败: ${error}`);
+      toast.error(`导入失败: ${error}`);
     } finally {
       setIsImporting(false);
     }
@@ -177,7 +154,7 @@ export function ImportDialog({ open, onOpenChange, onImport, libraryRoot }: Impo
   return (
     <Fragment>
       <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[600px]">
+      <DialogContent size="lg">
         <DialogHeader>
           <DialogTitle>导入胶卷</DialogTitle>
           <DialogDescription>
@@ -185,7 +162,7 @@ export function ImportDialog({ open, onOpenChange, onImport, libraryRoot }: Impo
           </DialogDescription>
         </DialogHeader>
 
-        <div className="grid gap-4 py-4">
+        <div className={`grid ${spacing.gap.LG} ${dialogContentPadding.MD}`}>
           {/* Source Path */}
           <div className="grid gap-2">
             <Label htmlFor="source">源文件夹</Label>
@@ -215,7 +192,7 @@ export function ImportDialog({ open, onOpenChange, onImport, libraryRoot }: Impo
                 onClick={() => setIsPresetFormOpen(true)}
                 className="text-zinc-400 hover:text-white gap-1 h-6 px-2"
               >
-                <Plus className="h-3 w-3" />
+                <Plus className={iconSizes.XS} />
                 添加新预设
               </Button>
             </div>
@@ -357,7 +334,7 @@ export function ImportDialog({ open, onOpenChange, onImport, libraryRoot }: Impo
               </div>
               <div className="w-full bg-zinc-700 rounded-full h-2">
                 <div
-                  className="bg-blue-600 h-2 rounded-full transition-all"
+                  className={`${colors.primary.DEFAULT} h-2 rounded-full transition-all`}
                   style={{
                     width: `${(importProgress.current / importProgress.total) * 100}%`,
                   }}

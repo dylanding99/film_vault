@@ -1,50 +1,122 @@
 /**
  * FilmVault RollFilters Component
  *
- * Search and filter UI for the roll list
+ * Modern horizontal filter bar with pill-style filters
  */
 
 'use client';
 
-import { useState } from 'react';
-import { Search, X, Filter, Calendar, Camera } from 'lucide-react';
+import { useState, useRef, useEffect } from 'react';
+import { Search, X, Filter, Calendar, Camera, Star, ChevronDown, RotateCcw } from 'lucide-react';
 import type { RollFilters } from '@/types/filter';
 import { getUniqueFilmStocks, getUniqueCameras } from '@/lib/filter-utils';
 import { Roll } from '@/types/roll';
-import { Button } from './ui/button';
-import { Input } from './ui/input';
-import { Label } from './ui/label';
 
 interface RollFiltersProps {
   rolls: Roll[];
   filters: RollFilters;
   onFiltersChange: (filters: RollFilters) => void;
-  filteredCount: number;
-  totalCount: number;
+}
+
+interface FilterDropdownProps {
+  label: string;
+  icon: React.ReactNode;
+  currentValue: string | null;
+  options: string[];
+  placeholder: string;
+  onSelect: (value: string) => void;
+  active: boolean;
+}
+
+function FilterDropdown({
+  label,
+  icon,
+  currentValue,
+  options,
+  placeholder,
+  onSelect,
+  active,
+}: FilterDropdownProps) {
+  const [isOpen, setIsOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  // Add "全部" as first option
+  const allOptions = ['全部', ...options];
+
+  return (
+    <div className="relative" ref={dropdownRef}>
+      <button
+        onClick={() => setIsOpen(!isOpen)}
+        className={`filter-pill ${active ? 'active' : ''}`}
+      >
+        <span className="icon">{icon}</span>
+        <span>{currentValue || placeholder}</span>
+        <ChevronDown className="h-4 w-4" />
+      </button>
+
+      {isOpen && (
+        <div className="dropdown-menu open">
+          {allOptions.map((option) => (
+            <div
+              key={option}
+              onClick={() => {
+                const value = option === '全部' ? 'all' : option;
+                onSelect(value);
+                setIsOpen(false);
+              }}
+              className={`item ${(currentValue === null && option === '全部') || currentValue === option ? 'active' : ''}`}
+            >
+              {option}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
 }
 
 export function RollFilters({
   rolls,
   filters,
   onFiltersChange,
-  filteredCount,
-  totalCount,
 }: RollFiltersProps) {
-  // Get unique values for dropdowns
   const filmStocks = getUniqueFilmStocks(rolls);
   const cameras = getUniqueCameras(rolls);
+  const [searchValue, setSearchValue] = useState(filters.searchTerm);
 
-  // Check if any filters are active
+  // Check if date filter is active
+  const dateFilterActive =
+    filters.dateRange.from !== null || filters.dateRange.to !== null;
+
+  // Check if any filter is active
   const hasActiveFilters =
     filters.searchTerm !== '' ||
     filters.filmStock !== 'all' ||
     filters.camera !== 'all' ||
-    filters.dateRange.from !== null ||
-    filters.dateRange.to !== null ||
+    dateFilterActive ||
     filters.hasFavorites;
 
-  // Clear all filters
-  const handleClearFilters = () => {
+  // Debounced search
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      onFiltersChange({ ...filters, searchTerm: searchValue });
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchValue]);
+
+  // Reset all filters
+  const handleResetAll = () => {
+    setSearchValue('');
     onFiltersChange({
       searchTerm: '',
       filmStock: 'all',
@@ -55,142 +127,94 @@ export function RollFilters({
   };
 
   return (
-    <div className="mb-6 space-y-4">
-      {/* Search and Clear Bar */}
-      <div className="flex items-center gap-2">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-500" />
-          <Input
-            type="text"
-            placeholder="搜索胶卷名称、相机、胶片类型..."
-            value={filters.searchTerm}
-            onChange={(e) =>
-              onFiltersChange({ ...filters, searchTerm: e.target.value })
-            }
-            className="pl-9 bg-zinc-900 border-zinc-700 text-zinc-100 placeholder:text-zinc-500"
-          />
-        </div>
-        {hasActiveFilters && (
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleClearFilters}
-            className="text-zinc-400 hover:text-zinc-100"
-          >
-            <X className="h-4 w-4 mr-1" />
-            清除筛选
-          </Button>
-        )}
-      </div>
-
-      {/* Filter Options */}
-      <div className="flex flex-wrap items-center gap-4">
-        {/* Film Stock Filter */}
-        <div className="flex items-center gap-2">
-          <Filter className="h-4 w-4 text-zinc-500" />
-          <Label htmlFor="filmStock" className="text-sm text-zinc-400">
-            胶片类型:
-          </Label>
-          <select
-            id="filmStock"
-            value={filters.filmStock}
-            onChange={(e) =>
-              onFiltersChange({
-                ...filters,
-                filmStock: e.target.value as string | 'all',
-              })
-            }
-            className="bg-zinc-900 border border-zinc-700 rounded-md px-3 py-1.5 text-sm text-zinc-100 focus:outline-none focus:ring-2 focus:ring-zinc-600"
-          >
-            <option value="all">全部</option>
-            {filmStocks.map((stock) => (
-              <option key={stock} value={stock}>
-                {stock}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        {/* Camera Filter */}
-        <div className="flex items-center gap-2">
-          <Camera className="h-4 w-4 text-zinc-500" />
-          <Label htmlFor="camera" className="text-sm text-zinc-400">
-            相机:
-          </Label>
-          <select
-            id="camera"
-            value={filters.camera}
-            onChange={(e) =>
-              onFiltersChange({
-                ...filters,
-                camera: e.target.value as string | 'all',
-              })
-            }
-            className="bg-zinc-900 border border-zinc-700 rounded-md px-3 py-1.5 text-sm text-zinc-100 focus:outline-none focus:ring-2 focus:ring-zinc-600"
-          >
-            <option value="all">全部</option>
-            {cameras.map((camera) => (
-              <option key={camera} value={camera}>
-                {camera}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        {/* Date Range Filter */}
-        <div className="flex items-center gap-2">
-          <Calendar className="h-4 w-4 text-zinc-500" />
-          <Label className="text-sm text-zinc-400">日期:</Label>
-          <Input
-            type="date"
-            value={filters.dateRange.from || ''}
-            onChange={(e) =>
-              onFiltersChange({
-                ...filters,
-                dateRange: { ...filters.dateRange, from: e.target.value || null },
-              })
-            }
-            className="w-36 bg-zinc-900 border-zinc-700 text-zinc-100 text-sm"
-          />
-          <span className="text-zinc-500">-</span>
-          <Input
-            type="date"
-            value={filters.dateRange.to || ''}
-            onChange={(e) =>
-              onFiltersChange({
-                ...filters,
-                dateRange: { ...filters.dateRange, to: e.target.value || null },
-              })
-            }
-            className="w-36 bg-zinc-900 border-zinc-700 text-zinc-100 text-sm"
-          />
-        </div>
-
-        {/* Favorites Filter */}
-        <label className="flex items-center gap-2 cursor-pointer">
+    <div className="filter-bar animate-fade-in-up">
+      {/* Search Bar Wrapper */}
+      <div className="search-wrapper">
+        <div className="search-bar group">
           <input
-            type="checkbox"
-            checked={filters.hasFavorites}
-            onChange={(e) =>
-              onFiltersChange({ ...filters, hasFavorites: e.target.checked })
-            }
-            className="w-4 h-4 rounded border-zinc-600 bg-zinc-800 text-red-500 focus:ring-2 focus:ring-red-500 focus:ring-offset-2 focus:ring-offset-zinc-900"
+            type="text"
+            className="input"
+            placeholder="搜索胶卷、相机、胶片..."
+            value={searchValue}
+            onChange={(e) => setSearchValue(e.target.value)}
           />
-          <span className="text-sm text-zinc-300">只看收藏</span>
-        </label>
+          <Search className="icon group-focus-within:text-color-brand transition-colors" />
+          {searchValue && (
+            <button
+              className="clear-btn"
+              onClick={() => setSearchValue('')}
+              aria-label="清除搜索"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          )}
+        </div>
       </div>
 
-      {/* Result Count */}
-      <div className="text-sm text-zinc-400">
-        {filteredCount === totalCount ? (
-          <span>共 {totalCount} 个胶卷</span>
-        ) : (
-          <span>
-            找到 <span className="text-zinc-100 font-medium">{filteredCount}</span> 个胶卷
-            （共 {totalCount} 个）
-          </span>
-        )}
+      {/* Filter Pills Wrapper */}
+      <div className="filters-wrapper">
+        <FilterDropdown
+          label="胶片类型"
+          icon={<Filter className="h-3.5 w-3.5" />}
+          currentValue={filters.filmStock === 'all' ? null : filters.filmStock}
+          options={filmStocks}
+          placeholder="胶片型号"
+          onSelect={(value) => onFiltersChange({ ...filters, filmStock: value })}
+          active={filters.filmStock !== 'all'}
+        />
+
+        <FilterDropdown
+          label="相机"
+          icon={<Camera className="h-3.5 w-3.5" />}
+          currentValue={filters.camera === 'all' ? null : filters.camera}
+          options={cameras}
+          placeholder="相机型号"
+          onSelect={(value) => onFiltersChange({ ...filters, camera: value })}
+          active={filters.camera !== 'all'}
+        />
+
+        <button
+          className={`filter-pill ${dateFilterActive ? 'active' : ''}`}
+          onClick={() => {
+            const today = new Date().toISOString().split('T')[0];
+            onFiltersChange({
+              ...filters,
+              dateRange: {
+                from: filters.dateRange.from ? null : today,
+                to: null,
+              },
+            });
+          }}
+        >
+          <span className="icon"><Calendar className="h-3.5 w-3.5" /></span>
+          <span>日期范围</span>
+          {dateFilterActive && <X className="h-3 w-3 ml-1 opacity-60 hover:opacity-100" onClick={(e) => {
+            e.stopPropagation();
+            onFiltersChange({ ...filters, dateRange: { from: null, to: null } });
+          }} />}
+        </button>
+
+        <button
+          className={`filter-pill ${filters.hasFavorites ? 'active' : 'opacity-70'}`}
+          onClick={() => onFiltersChange({ ...filters, hasFavorites: !filters.hasFavorites })}
+        >
+          <span className="icon"><Star className={`h-3.5 w-3.5 ${filters.hasFavorites ? 'fill-current' : ''}`} /></span>
+          <span>收藏夹</span>
+        </button>
       </div>
+
+      {/* Reset All Button (Right Side) */}
+      {hasActiveFilters && (
+        <div className="results-count">
+          <button
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full hover:bg-white/5 transition-colors text-tertiary hover:text-secondary group"
+            onClick={handleResetAll}
+          >
+            <RotateCcw className="h-3.5 w-3.5 transition-transform group-hover:-rotate-180 duration-500" />
+            <span className="font-mono text-[10px] uppercase tracking-widest">Clear Filters</span>
+          </button>
+        </div>
+      )}
     </div>
   );
 }

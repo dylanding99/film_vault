@@ -11,10 +11,13 @@ import { Button } from './ui/button';
 import { Label } from './ui/label';
 import { Input } from './ui/input';
 import { Select } from './ui/select';
+import { colors, spacing, iconSizes, dialogContentPadding } from '@/styles/design-tokens';
 import { FilmPreset, PresetFormData, FILM_FORMATS, BRAND_COLORS } from '@/types/film-preset';
 import { uploadPresetImage } from '@/lib/db';
 import { Upload, X } from 'lucide-react';
 import * as DialogPlugin from '@tauri-apps/plugin-dialog';
+import { useImageAsset } from '@/hooks/useImageAsset';
+import { toast } from '@/components/ui/toast';
 
 interface FilmPresetFormProps {
   open: boolean;
@@ -29,9 +32,12 @@ export function FilmPresetForm({ open, onOpenChange, onSave, preset }: FilmPrese
   const [format, setFormat] = useState('135');
   const [brandColor, setBrandColor] = useState('bg-purple-600');
   const [imageFile, setImageFile] = useState<File | undefined>();
-  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [newImagePreview, setNewImagePreview] = useState<string | undefined>(undefined);
   const [isSaving, setIsSaving] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+
+  // Use useImageAsset for preset image
+  const { url: presetImagePreview, isLoading: isImageLoading } = useImageAsset(preset?.image_path);
 
   // Reset form when dialog opens/closes or preset changes
   useEffect(() => {
@@ -43,7 +49,7 @@ export function FilmPresetForm({ open, onOpenChange, onSave, preset }: FilmPrese
         setFormat(preset.format);
         setBrandColor(preset.brand_color);
         setImageFile(undefined);
-        setImagePreview(null);
+        setNewImagePreview(undefined);
       } else {
         // Create mode: reset to defaults
         setName('');
@@ -51,7 +57,7 @@ export function FilmPresetForm({ open, onOpenChange, onSave, preset }: FilmPrese
         setFormat('135');
         setBrandColor('bg-purple-600');
         setImageFile(undefined);
-        setImagePreview(null);
+        setNewImagePreview(undefined);
       }
     }
   }, [open, preset]);
@@ -112,7 +118,7 @@ export function FilmPresetForm({ open, onOpenChange, onSave, preset }: FilmPrese
         try {
           const { readImageAsBase64 } = await import('@/lib/db');
           const data = await readImageAsBase64(selected);
-          setImagePreview(data);
+          setNewImagePreview(data);
         } catch (error) {
           console.error('Failed to preview image:', error);
         }
@@ -124,19 +130,19 @@ export function FilmPresetForm({ open, onOpenChange, onSave, preset }: FilmPrese
 
   const clearImage = () => {
     setImageFile(undefined);
-    setImagePreview(null);
+    setNewImagePreview(undefined);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!name.trim()) {
-      alert('请输入胶片名称');
+      toast.error('请输入胶片名称');
       return;
     }
 
     if (!brand.trim()) {
-      alert('请输入品牌');
+      toast.error('请输入品牌');
       return;
     }
 
@@ -151,7 +157,7 @@ export function FilmPresetForm({ open, onOpenChange, onSave, preset }: FilmPrese
           imagePath = await uploadPresetImage((imageFile as any).path);
         } catch (error) {
           console.error('Failed to upload image:', error);
-          alert('图片上传失败，将保存为纯色背景');
+          toast.error('图片上传失败，将保存为纯色背景');
         }
         setIsUploading(false);
       }
@@ -176,13 +182,13 @@ export function FilmPresetForm({ open, onOpenChange, onSave, preset }: FilmPrese
         setFormat('135');
         setBrandColor('bg-purple-600');
         setImageFile(undefined);
-        setImagePreview(null);
+        setNewImagePreview(undefined);
       }
 
       onOpenChange(false);
     } catch (error) {
       console.error('Save failed:', error);
-      alert(`保存失败: ${error}`);
+      toast.error(`保存失败: ${error}`);
     } finally {
       setIsSaving(false);
       setIsUploading(false);
@@ -191,7 +197,7 @@ export function FilmPresetForm({ open, onOpenChange, onSave, preset }: FilmPrese
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px] max-h-[90vh] overflow-y-auto">
+      <DialogContent size="md">
         <DialogHeader>
           <DialogTitle>{preset ? '编辑胶片预设' : '添加胶片预设'}</DialogTitle>
           <DialogDescription>
@@ -199,7 +205,7 @@ export function FilmPresetForm({ open, onOpenChange, onSave, preset }: FilmPrese
           </DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="grid gap-4 py-4">
+        <form onSubmit={handleSubmit} className={`grid ${spacing.gap.LG} ${dialogContentPadding.MD}`}>
           {/* Brand */}
           <div className="grid gap-2">
             <Label htmlFor="preset-brand">品牌</Label>
@@ -262,10 +268,10 @@ export function FilmPresetForm({ open, onOpenChange, onSave, preset }: FilmPrese
           {/* Image Upload */}
           <div className="grid gap-2">
             <Label>预设图片（可选）</Label>
-            {imagePreview ? (
+            {newImagePreview || presetImagePreview ? (
               <div className="relative w-32 h-32 rounded-lg overflow-hidden group">
                 <img
-                  src={imagePreview}
+                  src={newImagePreview || presetImagePreview || ''}
                   alt="Preview"
                   className="w-full h-full object-cover"
                 />
@@ -274,15 +280,19 @@ export function FilmPresetForm({ open, onOpenChange, onSave, preset }: FilmPrese
                   onClick={clearImage}
                   className="absolute top-2 right-2 p-1 bg-black/50 hover:bg-red-600 rounded text-white opacity-0 group-hover:opacity-100 transition-opacity"
                 >
-                  <X className="h-4 w-4" />
+                  <X className={iconSizes.MD} />
                 </button>
+              </div>
+            ) : isImageLoading ? (
+              <div className="w-32 h-32 border-2 border-dashed border-zinc-700 rounded-lg flex flex-col items-center justify-center">
+                <div className="text-zinc-500 text-sm">加载中...</div>
               </div>
             ) : (
               <div
                 onClick={handleFileSelect}
                 className="w-32 h-32 border-2 border-dashed border-zinc-700 rounded-lg flex flex-col items-center justify-center cursor-pointer hover:border-zinc-500 hover:bg-zinc-800/50 transition-colors"
               >
-                <Upload className="h-8 w-8 text-zinc-500 mb-2" />
+                <Upload className={iconSizes.XL} />
                 <span className="text-xs text-zinc-500">点击上传</span>
               </div>
             )}

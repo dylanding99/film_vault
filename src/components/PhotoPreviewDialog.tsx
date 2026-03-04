@@ -7,7 +7,8 @@ import {
 } from './ui/dialog';
 import { Button } from './ui/button';
 import { ChevronLeft, ChevronRight, X, Heart, Info, Edit, Loader2, MapPin } from 'lucide-react';
-import { pathToAssetUrl } from '@/lib/utils';
+import { colors, spacing, iconSizes } from '@/styles/design-tokens';
+import { useImageAsset } from '@/hooks/useImageAsset';
 import type { Photo } from '@/types/roll';
 import type { ExifData } from '@/types/exif';
 import { ExifInfoPanel } from './ExifInfoPanel';
@@ -41,9 +42,8 @@ export function PhotoPreviewDialog({
   onToggleFavorite,
   onPhotoUpdate,
 }: PhotoPreviewDialogProps) {
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [hasError, setHasError] = useState(false);
+  // Use useImageAsset for image loading
+  const { url: previewUrl, isLoading: isImageLoading, hasError: hasImageError } = useImageAsset(photo.preview_path || photo.file_path);
   const [isSettingCover, setIsSettingCover] = useState(false);
   const [isTogglingFavorite, setIsTogglingFavorite] = useState(false);
   const [showExifPanel, setShowExifPanel] = useState(false);
@@ -64,40 +64,6 @@ export function PhotoPreviewDialog({
   useEffect(() => {
     setIsCover(photo.is_cover);
   }, [photo.id, photo.is_cover]);
-
-  useEffect(() => {
-    if (photo.preview_path) {
-      console.log('[PhotoPreviewDialog', photo.id, '] Converting preview_path:', photo.preview_path);
-      pathToAssetUrl(photo.preview_path)
-        .then(url => {
-          console.log('[PhotoPreviewDialog', photo.id, '] Converted URL');
-          setPreviewUrl(url);
-          setIsLoading(false);
-        })
-        .catch(err => {
-          console.error('[PhotoPreviewDialog', photo.id, '] Failed to convert URL:', err);
-          setHasError(true);
-          setIsLoading(false);
-        });
-    } else if (photo.file_path) {
-      // Fallback to original file
-      console.log('[PhotoPreviewDialog', photo.id, '] Converting file_path (fallback):', photo.file_path);
-      pathToAssetUrl(photo.file_path)
-        .then(url => {
-          console.log('[PhotoPreviewDialog', photo.id, '] Converted URL (fallback)');
-          setPreviewUrl(url);
-          setIsLoading(false);
-        })
-        .catch(err => {
-          console.error('[PhotoPreviewDialog', photo.id, '] Failed to convert URL (fallback):', err);
-          setHasError(true);
-          setIsLoading(false);
-        });
-    } else {
-      setIsLoading(false);
-      setHasError(true);
-    }
-  }, [photo.preview_path, photo.file_path, photo.id]);
 
   // Load EXIF data when photo changes or panel opens
   useEffect(() => {
@@ -161,13 +127,13 @@ export function PhotoPreviewDialog({
 
   return (
     <Dialog open={true} onOpenChange={() => onClose()}>
-      <DialogContent className="max-w-[95vw] max-h-[95vh] p-0 bg-black/95 border-zinc-800">
+      <DialogContent size="full" padding="lg">
         {/* Close Button */}
         <button
           onClick={onClose}
           className="absolute top-4 right-4 z-10 p-2 rounded-full bg-black/50 text-white hover:bg-black/70 transition-colors"
         >
-          <X className="h-5 w-5" />
+          <X className={iconSizes.LG} />
         </button>
 
         {/* Navigation Buttons */}
@@ -177,24 +143,24 @@ export function PhotoPreviewDialog({
               onClick={() => onNavigate('prev')}
               className="absolute left-4 top-1/2 -translate-y-1/2 z-10 p-3 rounded-full bg-black/50 text-white hover:bg-black/70 transition-colors"
             >
-              <ChevronLeft className="h-6 w-6" />
+              <ChevronLeft className={iconSizes.XL} />
             </button>
             <button
               onClick={() => onNavigate('next')}
               className="absolute right-4 top-1/2 -translate-y-1/2 z-10 p-3 rounded-full bg-black/50 text-white hover:bg-black/70 transition-colors"
             >
-              <ChevronRight className="h-6 w-6" />
+              <ChevronRight className={iconSizes.XL} />
             </button>
           </>
         )}
 
         {/* Image Container */}
         <div className="flex items-center justify-center min-h-[60vh]">
-          {isLoading ? (
+          {isImageLoading ? (
             <div className="flex items-center justify-center">
               <div className="text-zinc-500">Loading...</div>
             </div>
-          ) : hasError || !previewUrl ? (
+          ) : hasImageError || !previewUrl ? (
             <div className="flex flex-col items-center justify-center text-zinc-500">
               <div className="text-6xl mb-4">📷</div>
               <div>Failed to load image</div>
@@ -219,8 +185,8 @@ export function PhotoPreviewDialog({
               </div>
               {/* Location Display */}
               {displayLocation && (
-                <div className="flex items-center gap-1.5 text-xs text-zinc-400 mt-1">
-                  <MapPin className="h-3.5 w-3.5" />
+                <div className={`flex items-center gap-1.5 text-xs mt-1 ${colors.text.TERTIARY}`}>
+                  <MapPin className={iconSizes.SM} />
                   {displayLocation.city}, {displayLocation.country}
                 </div>
               )}
@@ -234,16 +200,16 @@ export function PhotoPreviewDialog({
                 variant="outline"
                 className="bg-zinc-800/80 hover:bg-zinc-700/80 border-zinc-600 text-white"
               >
-                <Edit className="h-4 w-4 mr-1" />
+                <Edit className={`${iconSizes.MD} mr-1`} />
                 编辑 EXIF
               </Button>
               <Button
                 onClick={() => setShowExifPanel(!showExifPanel)}
                 size="sm"
                 variant={showExifPanel ? "default" : "outline"}
-                className={showExifPanel ? "bg-blue-600 hover:bg-blue-700" : "bg-zinc-800/80 hover:bg-zinc-700/80 border-zinc-600 text-white"}
+                className={showExifPanel ? `${colors.primary.DEFAULT} ${colors.primary.hover}` : "bg-zinc-800/80 hover:bg-zinc-700/80 border-zinc-600 text-white"}
               >
-                <Info className="h-4 w-4 mr-1" />
+                <Info className={`${iconSizes.MD} mr-1`} />
                 {showExifPanel ? '隐藏 EXIF' : 'EXIF 信息'}
               </Button>
               <Button
@@ -253,7 +219,7 @@ export function PhotoPreviewDialog({
                 variant={photo.is_favorite ? "default" : "secondary"}
                 className={photo.is_favorite ? "bg-red-500 hover:bg-red-600" : ""}
               >
-                <Heart className={`h-4 w-4 mr-1 ${photo.is_favorite ? 'fill-current' : ''}`} />
+                <Heart className={`${iconSizes.MD} mr-1 ${photo.is_favorite ? 'fill-current' : ''}`} />
                 {isTogglingFavorite ? '处理中...' : photo.is_favorite ? '已收藏' : '收藏'}
               </Button>
               {!isCover && (
@@ -267,7 +233,7 @@ export function PhotoPreviewDialog({
                 </Button>
               )}
               {isCover && (
-                <div className="px-3 py-1.5 rounded-md bg-blue-600 text-white text-sm font-medium">
+                <div className={`px-3 py-1.5 rounded-md ${colors.primary.DEFAULT} text-white text-sm font-medium`}>
                   Cover Photo
                 </div>
               )}
@@ -280,7 +246,7 @@ export function PhotoPreviewDialog({
           <div className="absolute top-4 left-4 w-72">
             {isLoadingExif ? (
               <div className="bg-zinc-900/50 border border-zinc-800 rounded-lg p-4 flex items-center justify-center">
-                <Loader2 className="h-5 w-5 animate-spin text-zinc-400" />
+                <Loader2 className={`${iconSizes.LG} animate-spin text-zinc-400`} />
                 <span className="ml-2 text-sm text-zinc-400">加载中...</span>
               </div>
             ) : (

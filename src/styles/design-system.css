@@ -1,0 +1,892 @@
+/**
+ * FilmVault Design System - Editorial Cinematic Dark
+ *
+ * A refined design system for film photography management
+ * Focusing on editorial elegance, cinematic depth, and micro-interactions
+ */
+
+/* ========================================
+   CSS Variables System
+   ======================================== */
+
+:root {
+  /* Primary Colors - Brand */
+  --color-brand: 220 70% 50%;
+  --color-brand-dim: 220 70% 35%;
+  --color-brand-bright: 220 70% 65%;
+
+  /* Background System - Deep Cinematic */
+  --bg-deep: 0 0% 3%;
+  --bg-surface: 0 0% 6%;
+  --bg-elevated: 0 0% 9%;
+  --bg-card: 0 0% 10%;
+  --bg-card-hover: 0 0% 12%;
+
+  /* Text Colors - Editorial Hierarchy */
+  --text-primary: 0 0% 100%;
+  --text-secondary: 0 0% 70%;
+  --text-tertiary: 0 0% 45%;
+  --text-inverted: 0 0% 3%;
+
+  /* Accent Colors */
+  --accent-amber: 35 90% 60%;
+  --accent-emerald: 150 70% 50%;
+  --accent-rose: 350 85% 55%;
+
+  /* Border & Stroke */
+  --border-subtle: 0 0% 15%;
+  --border-default: 0 0% 20%;
+  --border-strong: 0 0% 25%;
+
+  /* Filter Pill Colors */
+  --filter-pill-bg: 0 0% 12%;
+  --filter-pill-bg-hover: 0 0% 16%;
+  --filter-pill-bg-active: 220 70% 50%;
+  --filter-pill-border: 0 0% 18%;
+
+  /* Film Frame Effect */
+  --film-frame-outer: 0 0% 12%;
+  --film-frame-inner: 0 0% 8%;
+
+  /* Spacing Scale */
+  --space-xs: 0.25rem;
+  --space-sm: 0.5rem;
+  --space-md: 1rem;
+  --space-lg: 1.5rem;
+  --space-xl: 2rem;
+  --space-2xl: 3rem;
+
+  /* Border Radius */
+  --radius-sm: 0.375rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 0.75rem;
+  --radius-xl: 1rem;
+  --radius-full: 9999px;
+
+  /* Transitions */
+  --ease-out-quint: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+  --duration-fast: 150ms;
+  --duration-normal: 250ms;
+  --duration-slow: 400ms;
+
+  /* Shadows - Cinematic Depth */
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.35);
+  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.4);
+  --shadow-xl: 0 16px 48px rgba(0, 0, 0, 0.5);
+  --shadow-glow: 0 0 20px rgba(220, 70%, 50%, 0.15);
+}
+
+/* ========================================
+   Typography System
+   ======================================== */
+
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Instrument+Serif:ital@0;1&family=DM+Mono:wght@400;500&display=swap');
+
+.font-display {
+  font-family: 'Instrument Serif', serif;
+  font-weight: 500;
+  letter-spacing: -0.02em;
+}
+
+.font-body {
+  font-family: 'Space Grotesk', system-ui, -apple-system, sans-serif;
+  font-weight: 400;
+  letter-spacing: -0.01em;
+}
+
+.font-mono {
+  font-family: 'DM Mono', 'SF Mono', 'Consolas', monospace;
+  font-weight: 400;
+  letter-spacing: 0em;
+}
+
+.text-eyebrow {
+  @apply font-mono text-xs uppercase tracking-widest text-tertiary;
+}
+
+.text-h1 {
+  @apply font-display text-4xl md:text-5xl font-medium text-primary leading-tight;
+}
+
+.text-h2 {
+  @apply font-display text-2xl md:text-3xl font-medium text-primary leading-tight;
+}
+
+.text-h3 {
+  @apply font-display text-xl md:text-2xl font-medium text-primary leading-tight;
+}
+
+.text-body-lg {
+  @apply font-body text-lg text-secondary leading-relaxed;
+}
+
+.text-body {
+  @apply font-body text-base text-secondary leading-normal;
+}
+
+.text-body-sm {
+  @apply font-body text-sm text-secondary leading-relaxed;
+}
+
+.text-caption {
+  @apply font-mono text-xs text-tertiary;
+}
+
+/* ========================================
+   Background Effects
+   ======================================== */
+
+.bg-deep {
+  background: hsl(var(--bg-deep));
+}
+
+.bg-surface {
+  background: hsl(var(--bg-surface));
+}
+
+.bg-elevated {
+  background: hsl(var(--bg-elevated));
+}
+
+.bg-card {
+  background: hsl(var(--bg-card));
+}
+
+/* Film Grain Overlay */
+.film-grain::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  pointer-events: none;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");
+  opacity: 0.5;
+}
+
+/* ========================================
+   Film Frame Effect
+   ======================================== */
+
+.film-frame {
+  position: relative;
+  padding: 8px;
+  background: hsl(var(--film-frame-outer));
+  box-shadow:
+    inset 0 1px 0 hsl(var(--film-frame-inner)),
+    inset 0 -1px 0 hsl(var(--film-frame-inner)),
+    0 2px 8px rgba(0, 0, 0, 0.4);
+}
+
+.film-frame::before,
+.film-frame::after {
+  content: '';
+  position: absolute;
+  background: hsl(var(--film-frame-inner));
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+}
+
+.film-frame::before {
+  top: 6px;
+  left: 6px;
+  box-shadow: 0 0 0 2px hsl(var(--bg-deep));
+}
+
+.film-frame::after {
+  bottom: 6px;
+  right: 6px;
+  box-shadow: 0 0 0 2px hsl(var(--bg-deep));
+}
+
+/* ========================================
+   Button System
+   ======================================== */
+
+.btn {
+  @apply font-body text-sm font-medium;
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-sm);
+  padding: var(--space-sm) var(--space-lg);
+  border-radius: var(--radius-md);
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: all var(--duration-normal) var(--ease-out-quint);
+  white-space: nowrap;
+}
+
+.btn:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px hsl(var(--color-brand));
+}
+
+.btn-primary {
+  background: hsl(var(--color-brand));
+  color: white;
+  box-shadow: var(--shadow-glow);
+}
+
+.btn-primary:hover {
+  background: hsl(var(--color-brand-bright));
+  transform: translateY(-1px);
+  box-shadow: 0 4px 16px rgba(220, 70%, 50%, 0.25);
+}
+
+.btn-primary:active {
+  transform: translateY(0);
+}
+
+.btn-secondary {
+  background: hsl(var(--bg-elevated));
+  color: hsl(var(--text-primary));
+  border-color: hsl(var(--border-default));
+}
+
+.btn-secondary:hover {
+  background: hsl(var(--bg-card));
+  border-color: hsl(var(--border-strong));
+}
+
+.btn-ghost {
+  background: transparent;
+  color: hsl(var(--text-secondary));
+}
+
+.btn-ghost:hover {
+  background: hsl(var(--bg-elevated));
+  color: hsl(var(--text-primary));
+}
+
+.btn-ghost:active {
+  background: hsl(var(--bg-card));
+}
+
+.btn-icon {
+  padding: var(--space-sm);
+}
+
+.btn-lg {
+  @apply text-base;
+  padding: var(--space-sm) var(--space-xl);
+}
+
+/* ========================================
+   Filter Pill System
+   ======================================== */
+
+.filter-pill {
+  @apply font-body text-sm;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-sm) var(--space-md);
+  border-radius: var(--radius-full);
+  background: hsl(var(--filter-pill-bg));
+  border: 1px solid hsl(var(--filter-pill-border));
+  color: hsl(var(--text-secondary));
+  cursor: pointer;
+  transition: all var(--duration-normal) var(--ease-out-quint);
+}
+
+.filter-pill:hover {
+  background: hsl(var(--filter-pill-bg-hover));
+  color: hsl(var(--text-primary));
+  border-color: hsl(var(--border-default));
+}
+
+.filter-pill.active {
+  background: hsl(var(--filter-pill-bg-active));
+  color: white;
+  border-color: hsl(var(--filter-pill-bg-active));
+}
+
+.filter-pill .icon {
+  transition: transform var(--duration-normal) var(--ease-out-quint);
+}
+
+.filter-pill:hover .icon {
+  transform: scale(1.1);
+}
+
+/* ========================================
+   Search Bar System
+   ======================================== */
+
+.search-bar {
+  @apply font-body text-base;
+  position: relative;
+  width: 100%;
+  max-width: 480px;
+}
+
+.search-bar .input {
+  @apply w-full;
+  padding: var(--space-sm) var(--space-md) var(--space-sm) calc(var(--space-md) * 2.5);
+  background: hsl(var(--bg-surface));
+  border: 1px solid hsl(var(--border-default));
+  border-radius: var(--radius-md);
+  color: hsl(var(--text-primary));
+  font-size: 0.875rem;
+  transition: all var(--duration-normal) var(--ease-in-out);
+}
+
+.search-bar .input::placeholder {
+  color: hsl(var(--text-tertiary));
+}
+
+.search-bar .input:focus {
+  outline: none;
+  border-color: hsl(var(--color-brand));
+  box-shadow: 0 0 0 3px rgba(220, 70%, 50%, 0.1);
+  background: hsl(var(--bg-deep));
+}
+
+.search-bar .icon {
+  position: absolute;
+  left: var(--space-md);
+  top: 50%;
+  transform: translateY(-50%);
+  color: hsl(var(--text-tertiary));
+  pointer-events: none;
+  transition: color var(--duration-fast) var(--ease-in-out);
+}
+
+.search-bar .input:focus + .icon {
+  color: hsl(var(--color-brand));
+}
+
+.search-bar .clear-btn {
+  position: absolute;
+  right: var(--space-sm);
+  top: 50%;
+  transform: translateY(-50%);
+  background: transparent;
+  border: none;
+  color: hsl(var(--text-tertiary));
+  cursor: pointer;
+  padding: var(--space-xs);
+  border-radius: var(--radius-sm);
+  transition: all var(--duration-fast) var(--ease-in-out);
+}
+
+.search-bar .clear-btn:hover {
+  background: hsl(var(--bg-elevated));
+  color: hsl(var(--text-secondary));
+}
+
+/* ========================================
+   Card System
+   ======================================== */
+
+.card {
+  background: hsl(var(--bg-card));
+  border-radius: var(--radius-lg);
+  border: 1px solid hsl(var(--border-subtle));
+  transition: all var(--duration-normal) var(--ease-out-quint);
+}
+
+.card-elevated {
+  @apply card;
+  box-shadow: var(--shadow-md);
+}
+
+.card-elevated:hover {
+  box-shadow: var(--shadow-lg);
+  transform: translateY(-2px);
+}
+
+.roll-card {
+  @apply card;
+  overflow: hidden;
+  cursor: pointer;
+  position: relative;
+}
+
+.roll-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    to top,
+    hsl(var(--bg-deep)) 0%,
+    transparent 50%
+  );
+  opacity: 0;
+  transition: opacity var(--duration-normal) var(--ease-out-quint);
+  pointer-events: none;
+  z-index: 1;
+}
+
+.roll-card:hover::before {
+  opacity: 0.8;
+}
+
+.roll-card:hover {
+  border-color: hsl(var(--border-default));
+}
+
+.roll-card.selected {
+  border-color: hsl(var(--color-brand));
+  box-shadow: 0 0 0 2px hsl(var(--color-brand));
+}
+
+/* ========================================
+   Input System
+   ======================================== */
+
+.input {
+  @apply font-body text-base bg-surface;
+  width: 100%;
+  padding: var(--space-sm) var(--space-md);
+  border-radius: var(--radius-md);
+  border: 1px solid hsl(var(--border-default));
+  color: hsl(var(--text-primary));
+  transition: all var(--duration-normal) var(--ease-in-out);
+}
+
+.input::placeholder {
+  color: hsl(var(--text-tertiary));
+}
+
+.input:focus {
+  outline: none;
+  border-color: hsl(var(--color-brand));
+  box-shadow: 0 0 0 3px rgba(220, 70%, 50%, 0.1);
+  background: hsl(var(--bg-deep));
+}
+
+/* ========================================
+   Animation Keyframes
+   ======================================== */
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateX(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes pulse-glow {
+  0%, 100% {
+    box-shadow: 0 0 0 rgba(220, 70%, 50%, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 20px rgba(220, 70%, 50%, 0.6);
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+/* ========================================
+   Animation Utilities
+   ======================================== */
+
+.animate-fade-in-up {
+  animation: fadeInUp var(--duration-slow) var(--ease-out-quint);
+}
+
+.animate-fade-in {
+  animation: fadeIn var(--duration-normal) var(--ease-in-out);
+}
+
+.animate-slide-in {
+  animation: slideIn var(--duration-normal) var(--ease-out-quint);
+}
+
+.animate-scale-in {
+  animation: scaleIn var(--duration-normal) var(--ease-out-quint);
+}
+
+.stagger-1 { animation-delay: 50ms; }
+.stagger-2 { animation-delay: 100ms; }
+.stagger-3 { animation-delay: 150ms; }
+.stagger-4 { animation-delay: 200ms; }
+.stagger-5 { animation-delay: 250ms; }
+.stagger-6 { animation-delay: 300ms; }
+
+/* ========================================
+   Advanced Cinematic Animations
+   ======================================== */
+
+@keyframes float {
+  0%, 100% { transform: translateY(0) rotate(0); }
+  33% { transform: translateY(-15px) rotate(2deg); }
+  66% { transform: translateY(5px) rotate(-1deg); }
+}
+
+@keyframes drift {
+  0%, 100% { transform: translateX(0); }
+  50% { transform: translateX(10px); }
+}
+
+@keyframes cinematic-glow {
+  0%, 100% { opacity: 0.3; filter: blur(40px); }
+  50% { opacity: 0.6; filter: blur(60px); }
+}
+
+@keyframes card-reveal {
+  from { opacity: 0; transform: scale(0.9) translateY(30px); filter: blur(10px); }
+  to { opacity: 1; transform: scale(1) translateY(0); filter: blur(0); }
+}
+
+.animate-float {
+  animation: float 8s ease-in-out infinite;
+}
+
+.animate-drift {
+  animation: drift 12s ease-in-out infinite;
+}
+
+.loading-ocean-card {
+  @apply absolute rounded-lg border border-white/5 bg-white/[0.02] backdrop-blur-sm shadow-2xl;
+  animation: card-reveal 1s var(--ease-out-quint) forwards, float 10s ease-in-out infinite;
+}
+
+/* ========================================
+   Scrollbar Styling
+   ======================================== */
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: hsl(var(--bg-deep));
+}
+
+::-webkit-scrollbar-thumb {
+  background: hsl(var(--border-default));
+  border-radius: var(--radius-sm);
+  transition: background var(--duration-fast) var(--ease-in-out);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--border-strong));
+}
+
+/* ========================================
+   Selection Styling
+   ======================================== */
+
+::selection {
+  background: hsl(var(--color-brand));
+  color: white;
+}
+
+/* ========================================
+   Utility Classes
+   ======================================== */
+
+.text-primary { color: hsl(var(--text-primary)); }
+.text-secondary { color: hsl(var(--text-secondary)); }
+.text-tertiary { color: hsl(var(--text-tertiary)); }
+
+.border-subtle { border-color: hsl(var(--border-subtle)); }
+.border-default { border-color: hsl(var(--border-default)); }
+
+.bg-deep { background: hsl(var(--bg-deep)); }
+.bg-surface { background: hsl(var(--bg-surface)); }
+.bg-card { background: hsl(var(--bg-card)); }
+
+/* ========================================
+   Logo Mark
+   ======================================== */
+
+.logo-mark {
+  position: relative;
+  width: 32px;
+  height: 32px;
+}
+
+.logo-mark::before {
+  content: '';
+  position: absolute;
+  inset: 2px;
+  background: hsl(var(--color-brand));
+  border-radius: 2px;
+}
+
+.logo-mark::after {
+  content: '';
+  position: absolute;
+  inset: 6px;
+  background: hsl(var(--bg-deep));
+  border-radius: 1px;
+}
+
+/* ========================================
+   Loading States
+   ======================================== */
+
+.loading-skeleton {
+  background: linear-gradient(
+    90deg,
+    hsl(var(--bg-card)) 0%,
+    hsl(var(--bg-surface)) 50%,
+    hsl(var(--bg-card)) 100%
+  );
+  background-size: 200% 100%;
+  animation: skeleton-loading 1.5s ease-in-out infinite;
+}
+
+@keyframes skeleton-loading {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* ========================================
+   Page Layout
+   ======================================== */
+
+.page-container {
+  width: 100%;
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: var(--space-lg);
+}
+
+.page-header {
+  margin-bottom: var(--space-xl);
+}
+
+.page-header .title {
+  @apply font-display text-3xl md:text-4xl;
+  color: hsl(var(--text-primary));
+  margin-bottom: var(--space-sm);
+}
+
+.page-header .subtitle {
+  @apply font-body text-sm;
+  color: hsl(var(--text-tertiary));
+}
+
+.filter-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-md) 0;
+  border-bottom: 1px solid hsl(var(--border-subtle));
+  margin-bottom: var(--space-lg);
+}
+
+.filter-bar .search-wrapper {
+  flex: 1;
+  min-width: 240px;
+}
+
+.filter-bar .filters-wrapper {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.filter-bar .results-count {
+  @apply font-mono text-xs;
+  color: hsl(var(--text-tertiary));
+  margin-left: auto;
+  padding: var(--space-sm);
+}
+
+.grid-gallery {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: var(--space-lg);
+}
+
+.grid-gallery .item {
+  @apply animate-fade-in-up;
+}
+
+/* ========================================
+   Roll Card Specific Styles
+   ======================================== */
+
+.roll-card-image {
+  aspect-ratio: 3 / 2;
+  background: hsl(var(--bg-deep));
+  position: relative;
+  overflow: hidden;
+}
+
+.roll-card-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform var(--duration-slow) var(--ease-out-quint);
+}
+
+.roll-card:hover .roll-card-image img {
+  transform: scale(1.05);
+}
+
+.roll-card-badge {
+  position: absolute;
+  top: var(--space-sm);
+  left: var(--space-sm);
+  z-index: 2;
+}
+
+.roll-card-content {
+  position: relative;
+  z-index: 2;
+  padding: var(--space-md);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.roll-card-title {
+  @apply font-display text-base font-medium;
+  color: hsl(var(--text-primary));
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.roll-card-meta {
+  @apply font-body text-sm;
+  color: hsl(var(--text-tertiary));
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.roll-card-meta .meta-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.roll-card-actions {
+  position: absolute;
+  top: var(--space-sm);
+  right: var(--space-sm);
+  z-index: 2;
+  display: flex;
+  gap: var(--space-xs);
+  opacity: 0;
+  transition: opacity var(--duration-normal) var(--ease-out-quint);
+}
+
+.roll-card:hover .roll-card-actions {
+  opacity: 1;
+}
+
+.roll-card-action-btn {
+  @apply flex items-center justify-center;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-md);
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(8px);
+  border: 1px solid hsla(0, 0%, 100%, 0.1);
+  color: white;
+  cursor: pointer;
+  transition: all var(--duration-fast) var(--ease-in-out);
+}
+
+.roll-card-action-btn:hover {
+  background: rgba(0, 0, 0, 0.8);
+  transform: scale(1.05);
+}
+
+/* ========================================
+   Dropdown Menu Styles
+   ======================================== */
+
+.dropdown-menu {
+  @apply card-elevated;
+  position: absolute;
+  top: calc(100% + var(--space-xs));
+  left: 0;
+  min-width: 180px;
+  z-index: 50;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(-4px);
+  transition: all var(--duration-fast) var(--ease-out-quint);
+}
+
+.dropdown-menu.open {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
+}
+
+.dropdown-menu .item {
+  @apply font-body text-sm;
+  padding: var(--space-sm) var(--space-md);
+  color: hsl(var(--text-secondary));
+  cursor: pointer;
+  transition: all var(--duration-fast) var(--ease-in-out);
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.dropdown-menu .item:first-child {
+  border-top-left-radius: var(--radius-md);
+  border-top-right-radius: var(--radius-md);
+}
+
+.dropdown-menu .item:last-child {
+  border-bottom-left-radius: var(--radius-md);
+  border-bottom-right-radius: var(--radius-md);
+}
+
+.dropdown-menu .item:hover {
+  background: hsl(var(--bg-elevated));
+  color: hsl(var(--text-primary));
+}
+
+.dropdown-menu .item.active {
+  background: hsla(220, 70%, 50%, 0.1);
+  color: hsl(var(--color-brand));
+}

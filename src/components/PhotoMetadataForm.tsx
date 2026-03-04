@@ -21,6 +21,7 @@ import {
 import { Button } from './ui/button';
 import { Label } from './ui/label';
 import { MessageSquare, RefreshCw } from 'lucide-react';
+import { colors, spacing, iconSizes, dialogContentPadding } from '@/styles/design-tokens';
 import type { Photo } from '@/types/roll';
 import type { ExifData } from '@/types/exif';
 import { writePhotoExif, readPhotoExif } from '@/lib/db';
@@ -93,15 +94,15 @@ export function PhotoMetadataForm({
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto bg-zinc-900 border-zinc-800 text-zinc-100">
+      <DialogContent size="sm">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2 text-zinc-100">
-            <MessageSquare className="h-5 w-5" />
+          <DialogTitle className="flex items-center gap-2">
+            <MessageSquare className={iconSizes.LG} />
             编辑备注 - {photo.filename}
           </DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-6 py-4">
+        <div className={`space-y-6 ${dialogContentPadding.MD}`}>
           {/* 错误提示 */}
           {error && (
             <div className="bg-red-900/20 border border-red-800 text-red-200 px-4 py-3 rounded">
@@ -119,7 +120,7 @@ export function PhotoMetadataForm({
               disabled={isReadingExif}
               className="border-zinc-700 text-zinc-300 hover:bg-zinc-800"
             >
-              <RefreshCw className={`h-4 w-4 mr-2 ${isReadingExif ? 'animate-spin' : ''}`} />
+              <RefreshCw className={`${iconSizes.MD} mr-2 ${isReadingExif ? 'animate-spin' : ''}`} />
               {isReadingExif ? '读取中...' : '从文件读取备注'}
             </Button>
           </div>
@@ -127,8 +128,8 @@ export function PhotoMetadataForm({
           {/* 备注 */}
           <div className="space-y-4">
             <div>
-              <Label htmlFor="comment" className="text-zinc-400 flex items-center gap-2">
-                <MessageSquare className="h-4 w-4" />
+              <Label htmlFor="comment" className={`${colors.text.TERTIARY} flex items-center gap-2`}>
+                <MessageSquare className={iconSizes.MD} />
                 备注
               </Label>
               <textarea
@@ -160,7 +161,7 @@ export function PhotoMetadataForm({
             type="button"
             onClick={handleSave}
             disabled={isSaving}
-            className="bg-blue-600 hover:bg-blue-700"
+            className={`${colors.primary.DEFAULT} ${colors.primary.hover}`}
           >
             {isSaving ? '保存中...' : '保存到文件'}
           </Button>

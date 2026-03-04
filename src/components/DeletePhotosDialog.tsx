@@ -10,6 +10,7 @@ import {
   DialogFooter,
 } from './ui/dialog';
 import { Button } from './ui/button';
+import { colors, spacing, iconSizes, dialogContentPadding } from '@/styles/design-tokens';
 import type { Photo } from '@/types/roll';
 
 interface DeletePhotosDialogProps {
@@ -31,10 +32,10 @@ export function DeletePhotosDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px]">
+      <DialogContent size="md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-destructive">
-            <Trash2 className="h-5 w-5" />
+            <Trash2 className={iconSizes.LG} />
             删除照片
           </DialogTitle>
           <DialogDescription>
@@ -42,10 +43,10 @@ export function DeletePhotosDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4 py-4">
+        <div className={`space-y-4 ${dialogContentPadding.MD}`}>
           {/* Warning Banner */}
           <div className="flex items-start gap-3 p-4 bg-destructive/10 border border-destructive/20 rounded-md">
-            <AlertTriangle className="h-5 w-5 text-destructive flex-shrink-0 mt-0.5" />
+            <AlertTriangle className={`${iconSizes.LG} text-destructive flex-shrink-0 mt-0.5`} />
             <div className="space-y-1 text-sm">
               <p className="font-medium text-destructive">
                 ⚠️ 确认删除 {photos.length} 张照片？
@@ -99,7 +100,7 @@ export function DeletePhotosDialog({
             disabled={isDeleting}
             className="gap-2"
           >
-            <Trash2 className="h-4 w-4" />
+            <Trash2 className={iconSizes.MD} />
             {isDeleting ? '删除中...' : '确认删除'}
           </Button>
         </DialogFooter>

@@ -3,6 +3,7 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { searchCities, type CitySuggestion, type Location } from '@/lib/geocoding';
 import { Loader2 } from 'lucide-react';
+import { iconSizes } from '@/styles/design-tokens';
 
 interface LocationSearchInputProps {
   value?: string;
@@ -165,7 +166,7 @@ export default function LocationSearchInput({
         />
         {isLoading && (
           <div className="absolute right-10 top-1/2 -translate-y-1/2">
-            <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+            <Loader2 className={`${iconSizes.MD} animate-spin text-muted-foreground`} />
           </div>
         )}
         {(displayValue || query) && (

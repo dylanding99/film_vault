@@ -3,10 +3,12 @@
 import { useState, useEffect } from 'react';
 import { FolderOpen, Copy, FileSymlink, Check, X, AlertCircle } from 'lucide-react';
 import { Button } from './ui/button';
+import { toast } from '@/components/ui/toast';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from './ui/dialog';
 import { Label } from './ui/label';
 import { RadioGroup, RadioGroupItem } from './ui/radio-group';
 import { Checkbox } from './ui/checkbox';
+import { colors, spacing, iconSizes, dialogContentPadding } from '@/styles/design-tokens';
 import * as DialogPlugin from '@tauri-apps/plugin-dialog';
 import { listen } from '@tauri-apps/api/event';
 import { previewImportCount } from '@/lib/db';
@@ -91,12 +93,12 @@ export function AddPhotosDialog({ open, onOpenChange, onAddPhotos, roll }: AddPh
   // Handle add photos
   const handleAddPhotos = async () => {
     if (!sourcePath) {
-      alert('请选择源文件夹');
+      toast.error('请选择源文件夹');
       return;
     }
 
     if (imageCount === 0) {
-      alert('所选文件夹中没有图片');
+      toast.error('所选文件夹中没有图片');
       return;
     }
 
@@ -110,22 +112,22 @@ export function AddPhotosDialog({ open, onOpenChange, onAddPhotos, roll }: AddPh
       });
     } catch (error) {
       console.error('Failed to add photos:', error);
-      alert(`添加照片失败: ${error instanceof Error ? error.message : '未知错误'}`);
+      toast.error(`添加照片失败: ${error instanceof Error ? error.message : '未知错误'}`);
       setIsAdding(false);
     }
   };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[600px] bg-zinc-900 border-zinc-800 text-white">
+      <DialogContent size="lg">
         <DialogHeader>
-          <DialogTitle className="text-xl font-bold">添加照片到胶卷</DialogTitle>
-          <DialogDescription className="text-zinc-400">
+          <DialogTitle>添加照片到胶卷</DialogTitle>
+          <DialogDescription>
             选择要添加的照片文件夹，照片将被导入到现有胶卷中
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-6 py-4">
+        <div className={`space-y-6 ${dialogContentPadding.MD}`}>
           {/* Roll Info */}
           <div className="bg-zinc-800/50 rounded-lg p-4 border border-zinc-700/50">
             <div className="flex items-center justify-between mb-2">
@@ -166,19 +168,19 @@ export function AddPhotosDialog({ open, onOpenChange, onAddPhotos, roll }: AddPh
                 disabled={isAdding}
                 className="shrink-0"
               >
-                <FolderOpen className="h-4 w-4" />
+                <FolderOpen className={iconSizes.MD} />
               </Button>
             </div>
             {imageCount !== null && (
               <div className="flex items-center gap-2 text-sm">
                 {imageCount > 0 ? (
                   <div className="flex items-center gap-1 text-green-400">
-                    <Check className="h-4 w-4" />
+                    <Check className={iconSizes.MD} />
                     <span>找到 {imageCount} 张照片</span>
                   </div>
                 ) : (
                   <div className="flex items-center gap-1 text-amber-400">
-                    <AlertCircle className="h-4 w-4" />
+                    <AlertCircle className={iconSizes.MD} />
                     <span>没有找到照片</span>
                   </div>
                 )}
@@ -200,7 +202,7 @@ export function AddPhotosDialog({ open, onOpenChange, onAddPhotos, roll }: AddPh
                 <RadioGroupItem value="copy" id="copy" className="border-zinc-600 text-white" />
                 <Label htmlFor="copy" className="flex-1 cursor-pointer">
                   <div className="flex items-center gap-2">
-                    <Copy className="h-4 w-4 text-zinc-400" />
+                    <Copy className={`${iconSizes.MD} text-zinc-400`} />
                     <div>
                       <div className="font-medium text-sm">复制文件</div>
                       <div className="text-xs text-zinc-500">保留源文件</div>
@@ -212,7 +214,7 @@ export function AddPhotosDialog({ open, onOpenChange, onAddPhotos, roll }: AddPh
                 <RadioGroupItem value="move" id="move" className="border-zinc-600 text-white" />
                 <Label htmlFor="move" className="flex-1 cursor-pointer">
                   <div className="flex items-center gap-2">
-                    <FileSymlink className="h-4 w-4 text-zinc-400" />
+                    <FileSymlink className={`${iconSizes.MD} text-zinc-400`} />
                     <div>
                       <div className="font-medium text-sm">移动文件</div>
                       <div className="text-xs text-zinc-500">删除源文件</div>
