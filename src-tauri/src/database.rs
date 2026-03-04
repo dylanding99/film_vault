@@ -468,16 +468,35 @@ pub async fn create_photo(pool: &SqlitePool, photo: NewPhoto) -> Result<i64> {
     Ok(result.last_insert_rowid())
 }
 
-/// Batch create photos
-pub async fn create_photos(pool: &SqlitePool, photos: Vec<NewPhoto>) -> Result<Vec<i64>> {
+/// Batch create photos in a single transaction
+pub async fn create_photos_in_transaction(pool: &SqlitePool, photos: Vec<NewPhoto>) -> Result<Vec<i64>> {
     let mut ids = Vec::new();
+    let mut tx = pool.begin().await?;
 
     for photo in photos {
-        let id = create_photo(pool, photo).await?;
-        ids.push(id);
+        let result = sqlx::query(
+            r#"
+            INSERT INTO photos (roll_id, filename, file_path, thumbnail_path, preview_path)
+            VALUES (?1, ?2, ?3, ?4, ?5)
+            "#
+        )
+        .bind(photo.roll_id)
+        .bind(&photo.filename)
+        .bind(&photo.file_path)
+        .bind(&photo.thumbnail_path)
+        .bind(&photo.preview_path)
+        .execute(&mut *tx)
+        .await?;
+        ids.push(result.last_insert_rowid());
     }
 
+    tx.commit().await?;
     Ok(ids)
+}
+
+/// Batch create photos (backward compatible wrapper)
+pub async fn create_photos(pool: &SqlitePool, photos: Vec<NewPhoto>) -> Result<Vec<i64>> {
+    create_photos_in_transaction(pool, photos).await
 }
 
 /// Get photos by roll ID
@@ -516,8 +535,10 @@ pub async fn get_roll_cover(pool: &SqlitePool, roll_id: i64) -> Result<Option<Ph
     Ok(photo)
 }
 
-/// Set photo as cover
-pub async fn set_photo_as_cover(pool: &SqlitePool, roll_id: i64, photo_id: i64) -> Result<bool> {
+/// Set photo as cover in a single transaction
+pub async fn set_photo_as_cover_in_transaction(pool: &SqlitePool, roll_id: i64, photo_id: i64) -> Result<bool> {
+    let mut tx = pool.begin().await?;
+
     // First, remove cover status from all photos in the roll
     sqlx::query("UPDATE photos SET is_cover = 0 WHERE roll_id = ?1")
         .bind(roll_id)
@@ -531,7 +552,13 @@ pub async fn set_photo_as_cover(pool: &SqlitePool, roll_id: i64, photo_id: i64) 
         .execute(pool)
         .await?;
 
+    tx.commit().await?;
     Ok(result.rows_affected() > 0)
+}
+
+/// Set photo as cover (backward compatible wrapper)
+pub async fn set_photo_as_cover(pool: &SqlitePool, roll_id: i64, photo_id: i64) -> Result<bool> {
+    set_photo_as_cover_in_transaction(pool, roll_id, photo_id).await
 }
 
 /// Update photo rating
