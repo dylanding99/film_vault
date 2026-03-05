@@ -13,6 +13,7 @@ import { DeleteRollDialog } from '@/components/DeleteRollDialog';
 import { DeletePhotosDialog } from '@/components/DeletePhotosDialog';
 import { EditMetadataForm } from '@/components/EditMetadataForm';
 import { AddPhotosDialog } from '@/components/AddPhotosDialog';
+import { EmptyState } from '@/components/EmptyState';
 import {
   getRollWithPhotos,
   updateRoll,

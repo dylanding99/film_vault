@@ -542,14 +542,14 @@ pub async fn set_photo_as_cover_in_transaction(pool: &SqlitePool, roll_id: i64, 
     // First, remove cover status from all photos in the roll
     sqlx::query("UPDATE photos SET is_cover = 0 WHERE roll_id = ?1")
         .bind(roll_id)
-        .execute(pool)
+        .execute(&mut *tx)
         .await?;
 
     // Then, set the new cover
     let result = sqlx::query("UPDATE photos SET is_cover = 1 WHERE id = ?2 AND roll_id = ?1")
         .bind(roll_id)
         .bind(photo_id)
-        .execute(pool)
+        .execute(&mut *tx)
         .await?;
 
     tx.commit().await?;

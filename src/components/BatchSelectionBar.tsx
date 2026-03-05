@@ -23,12 +23,7 @@ export function BatchSelectionBar({
   onDelete,
   itemType = 'photo',
 }: BatchSelectionBarProps) {
-  const itemText = itemType === 'photo'
-    ? (selectedCount === 1 ? '张照片' : '张照片')
-    : (selectedCount === 1 ? '个胶卷' : '个胶卷');
-
-  const selectAllText = itemType === 'photo' ? '全选' : '全选';
-  const clearText = '取消选择';
+  const itemText = itemType === 'photo' ? '张照片' : '个胶卷';
   const deleteText = itemType === 'photo' ? '删除照片' : '删除胶卷';
 
   return (

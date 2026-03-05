@@ -215,7 +215,6 @@ export function EditMetadataForm({ open, onOpenChange, roll, onSave }: EditMetad
             toast.error(`元数据已保存，但有 ${result.failed_count} 个文件写入 EXIF 失败。\n\n可能原因：文件只读、被其他程序占用、或 ExifTool 未安装。`);
           } else {
             setExifStatus('success');
-            console.log(`EXIF write completed: ${result.success_count} files`);
           }
         } catch (error) {
           console.error('EXIF write failed:', error);

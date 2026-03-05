@@ -26,16 +26,6 @@ export default function LocationSearchInput({
   placeholder = '搜索城市...',
   disabled = false,
 }: LocationSearchInputProps) {
-  // Debug: log when component receives props
-  useEffect(() => {
-    console.log('[LocationSearchInput] Props received:', { value, lat, lon, city, country });
-  }, [value, lat, lon, city, country]);
-
-  // Debug: log when location changes
-  useEffect(() => {
-    console.log('[LocationSearchInput] Location state:', { value, lat, lon, city, country });
-  }, [lat, lon, city, country]);
-
   const [query, setQuery] = useState(value || '');
   const [suggestions, setSuggestions] = useState<CitySuggestion[]>([]);
   const [isLoading, setIsLoading] = useState(false);

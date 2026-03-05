@@ -148,8 +148,6 @@ function HomePageContent() {
   const importMutation = useMutation({
     mutationFn: (options: ImportOptions) => importFolder(options),
     onSuccess: async (data) => {
-      console.log('[Import] Import successful, roll_id:', data.roll_id, 'photos_count:', data.photos_count);
-
       // Cancel any ongoing queries
       await queryClient.cancelQueries({ queryKey: ['rolls'] });
       await queryClient.cancelQueries({ queryKey: ['rolls', 'with-photos'] });
@@ -166,7 +164,6 @@ function HomePageContent() {
 
       await queryClient.refetchQueries({ queryKey: ['rolls', 'with-photos'] });
 
-      console.log('[Import] Queries refetched, closing dialog');
       setIsImportDialogOpen(false);
     },
     onError: (error: Error) => {
