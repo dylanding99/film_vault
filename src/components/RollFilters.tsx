@@ -85,6 +85,111 @@ function FilterDropdown({
   );
 }
 
+function DateFilterDropdown({
+  filters,
+  onFiltersChange,
+}: {
+  filters: RollFilters;
+  onFiltersChange: (f: RollFilters) => void;
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [localFrom, setLocalFrom] = useState(filters.dateRange.from || '');
+  const [localTo, setLocalTo] = useState(filters.dateRange.to || '');
+  const dropdownRef = useRef<HTMLDivElement>(null);
+  const active = filters.dateRange.from !== null || filters.dateRange.to !== null;
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  // Sync local state when filters reset externally
+  useEffect(() => {
+    setLocalFrom(filters.dateRange.from || '');
+    setLocalTo(filters.dateRange.to || '');
+  }, [filters.dateRange.from, filters.dateRange.to]);
+
+  const handleApply = () => {
+    onFiltersChange({
+      ...filters,
+      dateRange: { from: localFrom || null, to: localTo || null },
+    });
+    setIsOpen(false);
+  };
+
+  const handleClear = () => {
+    setLocalFrom('');
+    setLocalTo('');
+    onFiltersChange({ ...filters, dateRange: { from: null, to: null } });
+    setIsOpen(false);
+  };
+
+  const label = filters.dateRange.from || filters.dateRange.to
+    ? `${filters.dateRange.from || '…'} → ${filters.dateRange.to || '…'}`
+    : '日期范围';
+
+  return (
+    <div className="relative" ref={dropdownRef}>
+      <button
+        onClick={() => setIsOpen(!isOpen)}
+        className={`filter-pill ${active ? 'active' : ''}`}
+      >
+        <span className="icon"><Calendar className="h-3.5 w-3.5" /></span>
+        <span>{label}</span>
+        {active ? (
+          <X className="h-3 w-3 ml-1 opacity-60 hover:opacity-100" onClick={(e) => { e.stopPropagation(); handleClear(); }} />
+        ) : (
+          <ChevronDown className="h-4 w-4" />
+        )}
+      </button>
+
+      {isOpen && (
+        <div className="dropdown-menu open p-3 min-w-[220px]">
+          <div className="space-y-2 mb-3">
+            <div>
+              <label className="text-[10px] uppercase tracking-widest text-tertiary font-mono mb-1 block">开始日期</label>
+              <input
+                type="date"
+                value={localFrom}
+                onChange={(e) => setLocalFrom(e.target.value)}
+                className="w-full bg-white/5 border border-white/10 rounded-md px-2 py-1.5 text-sm text-primary focus:outline-none focus:border-color-brand/50"
+              />
+            </div>
+            <div>
+              <label className="text-[10px] uppercase tracking-widest text-tertiary font-mono mb-1 block">结束日期</label>
+              <input
+                type="date"
+                value={localTo}
+                onChange={(e) => setLocalTo(e.target.value)}
+                className="w-full bg-white/5 border border-white/10 rounded-md px-2 py-1.5 text-sm text-primary focus:outline-none focus:border-color-brand/50"
+              />
+            </div>
+          </div>
+          <div className="flex gap-2">
+            <button
+              onClick={handleClear}
+              className="flex-1 px-2 py-1.5 text-xs rounded-md border border-white/10 text-secondary hover:bg-white/5 transition-colors"
+            >
+              清除
+            </button>
+            <button
+              onClick={handleApply}
+              className="flex-1 px-2 py-1.5 text-xs rounded-md bg-color-brand/20 border border-color-brand/30 text-color-brand hover:bg-color-brand/30 transition-colors"
+            >
+              应用
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function RollFilters({
   rolls,
   filters,
@@ -173,26 +278,7 @@ export function RollFilters({
           active={filters.camera !== 'all'}
         />
 
-        <button
-          className={`filter-pill ${dateFilterActive ? 'active' : ''}`}
-          onClick={() => {
-            const today = new Date().toISOString().split('T')[0];
-            onFiltersChange({
-              ...filters,
-              dateRange: {
-                from: filters.dateRange.from ? null : today,
-                to: null,
-              },
-            });
-          }}
-        >
-          <span className="icon"><Calendar className="h-3.5 w-3.5" /></span>
-          <span>日期范围</span>
-          {dateFilterActive && <X className="h-3 w-3 ml-1 opacity-60 hover:opacity-100" onClick={(e) => {
-            e.stopPropagation();
-            onFiltersChange({ ...filters, dateRange: { from: null, to: null } });
-          }} />}
-        </button>
+        <DateFilterDropdown filters={filters} onFiltersChange={onFiltersChange} />
 
         <button
           className={`filter-pill ${filters.hasFavorites ? 'active' : 'opacity-70'}`}
@@ -211,7 +297,7 @@ export function RollFilters({
             onClick={handleResetAll}
           >
             <RotateCcw className="h-3.5 w-3.5 transition-transform group-hover:-rotate-180 duration-500" />
-            <span className="font-mono text-[10px] uppercase tracking-widest">Clear Filters</span>
+            <span className="font-mono text-[10px] uppercase tracking-widest">清除筛选</span>
           </button>
         </div>
       )}

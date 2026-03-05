@@ -23,6 +23,8 @@ import { previewImportCount, getFilmPresets, createFilmPreset } from '@/lib/db';
 import { FilmPresetGrid } from './FilmPresetGrid';
 import { FilmPresetForm } from './FilmPresetForm';
 import { Plus } from 'lucide-react';
+import { RadioGroup, RadioGroupItem } from './ui/radio-group';
+import { Checkbox } from './ui/checkbox';
 import { toast } from '@/components/ui/toast';
 
 interface ImportDialogProps {
@@ -101,7 +103,6 @@ export function ImportDialog({ open, onOpenChange, onImport, libraryRoot }: Impo
             setSourcePath('');
             return;
           }
-          console.log(`[ImportDialog] Found ${count} images in folder`);
         } catch (error) {
           console.error('Failed to preview folder:', error);
         }
@@ -154,15 +155,19 @@ export function ImportDialog({ open, onOpenChange, onImport, libraryRoot }: Impo
   return (
     <Fragment>
       <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent size="lg">
-        <DialogHeader>
-          <DialogTitle>导入胶卷</DialogTitle>
-          <DialogDescription>
-            选择一个包含照片的文件夹来导入新的胶卷
-          </DialogDescription>
-        </DialogHeader>
+      <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col p-0 overflow-hidden bg-surface border-white/5 shadow-2xl">
+        {/* Header */}
+        <div className="relative px-6 pt-8 pb-6 border-b border-white/5">
+          <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-color-brand/40 via-color-brand to-color-brand/40" />
+          <DialogHeader className="p-0">
+            <DialogTitle className="text-xl font-display tracking-tight text-primary">导入胶卷</DialogTitle>
+            <DialogDescription className="text-tertiary text-sm">
+              选择一个包含照片的文件夹来导入新的胶卷
+            </DialogDescription>
+          </DialogHeader>
+        </div>
 
-        <div className={`grid ${spacing.gap.LG} ${dialogContentPadding.MD}`}>
+        <div className={`flex-1 overflow-y-auto grid ${spacing.gap.LG} px-6 py-6`}>
           {/* Source Path */}
           <div className="grid gap-2">
             <Label htmlFor="source">源文件夹</Label>
@@ -190,7 +195,7 @@ export function ImportDialog({ open, onOpenChange, onImport, libraryRoot }: Impo
                 variant="ghost"
                 size="sm"
                 onClick={() => setIsPresetFormOpen(true)}
-                className="text-zinc-400 hover:text-white gap-1 h-6 px-2"
+                className="text-secondary hover:text-primary gap-1 h-6 px-2"
               >
                 <Plus className={iconSizes.XS} />
                 添加新预设
@@ -283,56 +288,47 @@ export function ImportDialog({ open, onOpenChange, onImport, libraryRoot }: Impo
           {/* File Copy Mode */}
           <div className="grid gap-2">
             <Label>文件处理方式</Label>
-            <div className="flex gap-4">
+            <RadioGroup
+              value={copyMode ? 'copy' : 'move'}
+              onValueChange={(v) => setCopyMode(v === 'copy')}
+              className="flex gap-4"
+            >
               <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="radio"
-                  name="copyMode"
-                  checked={copyMode}
-                  onChange={() => setCopyMode(true)}
-                  className="w-4 h-4"
-                />
+                <RadioGroupItem value="copy" id="mode-copy" />
                 <span className="text-sm">复制（保留源文件）</span>
               </label>
               <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="radio"
-                  name="copyMode"
-                  checked={!copyMode}
-                  onChange={() => setCopyMode(false)}
-                  className="w-4 h-4"
-                />
+                <RadioGroupItem value="move" id="mode-move" />
                 <span className="text-sm">移动（删除源文件）</span>
               </label>
-            </div>
+            </RadioGroup>
           </div>
 
           {/* Auto Write EXIF */}
           <div className="grid gap-2">
             <label className="flex items-center gap-2 cursor-pointer">
-              <input
-                type="checkbox"
+              <Checkbox
+                id="auto-exif"
                 checked={autoWriteExif}
-                onChange={(e) => setAutoWriteExif(e.target.checked)}
-                className="w-4 h-4"
+                onCheckedChange={(checked) => setAutoWriteExif(checked === true)}
               />
               <span className="text-sm">导入时自动写入 EXIF</span>
             </label>
-            <p className="text-xs text-zinc-500 ml-6">
+            <p className="text-xs text-tertiary ml-6">
               建议勾选，元数据将永久嵌入照片文件（相机、镜头、胶片类型、拍摄日期等）
             </p>
           </div>
 
           {/* Import Progress */}
           {isImporting && importProgress.total > 0 && (
-            <div className="grid gap-2 p-4 bg-zinc-800 rounded-lg">
+            <div className="grid gap-2 p-4 bg-white/5 border border-white/5 rounded-lg">
               <div className="flex items-center justify-between text-sm">
-                <span className="text-zinc-400">导入进度</span>
-                <span className="text-zinc-300">
+                <span className="text-secondary">导入进度</span>
+                <span className="text-primary">
                   {importProgress.current} / {importProgress.total}
                 </span>
               </div>
-              <div className="w-full bg-zinc-700 rounded-full h-2">
+              <div className="w-full bg-white/10 rounded-full h-2">
                 <div
                   className={`${colors.primary.DEFAULT} h-2 rounded-full transition-all`}
                   style={{
@@ -341,7 +337,7 @@ export function ImportDialog({ open, onOpenChange, onImport, libraryRoot }: Impo
                 />
               </div>
               {importProgress.filename && (
-                <div className="text-xs text-zinc-500 truncate">
+                <div className="text-xs text-tertiary truncate">
                   正在处理: {importProgress.filename}
                 </div>
               )}
@@ -349,7 +345,7 @@ export function ImportDialog({ open, onOpenChange, onImport, libraryRoot }: Impo
           )}
         </div>
 
-        <DialogFooter>
+        <DialogFooter className="px-6 py-4 border-t border-white/5">
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isImporting}>
             取消
           </Button>

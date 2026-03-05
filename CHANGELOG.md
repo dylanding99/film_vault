@@ -7,6 +7,16 @@
 
 ---
 
+## [0.6.1] - 2026-03-05
+
+### 修复与优化
+- **日期过滤**：将主页日期按钮改为下拉面板，支持选择开始/结束日期后点击"应用"过滤，支持独立清除
+- **设计统一**：SettingsDialog 对齐 EditMetadataForm 风格（品牌色渐变线头部、bg-surface/border-white/5 配色）
+- **ExifTool 状态**：设置弹窗新增 ExifTool 安装状态显示（检测中/已安装/未安装）
+- **ImportDialog**：对话框头部统一品牌色渐变线风格；radio/checkbox 替换为 Radix UI 组件，适配深色主题
+- **PhotoPreviewDialog**：按钮颜色从硬编码 zinc 改为设计系统变量（bg-white/10）
+- **文案**：过滤栏"Clear Filters"改为"清除筛选"
+
 ## [0.6.0] - 2026-03-04
 
 ### 新增

@@ -71,7 +71,6 @@ export function PhotoPreviewDialog({
       setIsLoadingExif(true);
       readPhotoExif(photo.id)
         .then(data => {
-          console.log('[PhotoPreviewDialog] EXIF data loaded:', data);
           setExifData(data);
         })
         .catch(err => {
@@ -198,7 +197,7 @@ export function PhotoPreviewDialog({
                 onClick={() => setShowEditExif(true)}
                 size="sm"
                 variant="outline"
-                className="bg-zinc-800/80 hover:bg-zinc-700/80 border-zinc-600 text-white"
+                className="bg-white/10 hover:bg-white/15 border-white/10 text-white"
               >
                 <Edit className={`${iconSizes.MD} mr-1`} />
                 编辑 EXIF
@@ -207,7 +206,7 @@ export function PhotoPreviewDialog({
                 onClick={() => setShowExifPanel(!showExifPanel)}
                 size="sm"
                 variant={showExifPanel ? "default" : "outline"}
-                className={showExifPanel ? `${colors.primary.DEFAULT} ${colors.primary.hover}` : "bg-zinc-800/80 hover:bg-zinc-700/80 border-zinc-600 text-white"}
+                className={showExifPanel ? `${colors.primary.DEFAULT} ${colors.primary.hover}` : "bg-white/10 hover:bg-white/15 border-white/10 text-white"}
               >
                 <Info className={`${iconSizes.MD} mr-1`} />
                 {showExifPanel ? '隐藏 EXIF' : 'EXIF 信息'}
@@ -245,9 +244,9 @@ export function PhotoPreviewDialog({
         {showExifPanel && (
           <div className="absolute top-4 left-4 w-72">
             {isLoadingExif ? (
-              <div className="bg-zinc-900/50 border border-zinc-800 rounded-lg p-4 flex items-center justify-center">
-                <Loader2 className={`${iconSizes.LG} animate-spin text-zinc-400`} />
-                <span className="ml-2 text-sm text-zinc-400">加载中...</span>
+              <div className="bg-black/50 border border-white/10 rounded-lg p-4 flex items-center justify-center">
+                <Loader2 className={`${iconSizes.LG} animate-spin text-secondary`} />
+                <span className="ml-2 text-sm text-secondary">加载中...</span>
               </div>
             ) : (
               <ExifInfoPanel photo={photo} exifData={exifData} />
@@ -267,7 +266,6 @@ export function PhotoPreviewDialog({
               setIsLoadingExif(true);
               readPhotoExif(photo.id)
                 .then(data => {
-                  console.log('[PhotoPreviewDialog] EXIF data reloaded:', data);
                   setExifData(data);
                 })
                 .catch(err => {
